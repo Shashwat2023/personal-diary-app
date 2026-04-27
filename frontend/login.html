@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign In — Personal Diary</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/animations.css" />
+  <style>
+    /* Extra shimmer lines for auth page atmosphere */
+    .auth-lines {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+    }
+    .auth-lines::before {
+      content: '';
+      position: absolute;
+      left: 50%;
+      top: -200px;
+      width: 1px;
+      height: 100vh;
+      background: linear-gradient(180deg, transparent 0%, rgba(196,147,63,0.08) 40%, transparent 100%);
+    }
+  </style>
+</head>
+<body class="page-enter">
+
+  <div class="auth-noise"></div>
+  <div class="auth-lines"></div>
+
+  <main class="auth-wrapper">
+    <div class="auth-card">
+
+      <div class="auth-logo">
+        <div class="auth-logo-icon">✦</div>
+        <span class="auth-logo-text">Folio</span>
+      </div>
+
+      <h1 class="auth-title">Welcome back.</h1>
+      <p class="auth-subtitle">// Sign in to continue your story</p>
+
+      <form id="login-form" novalidate autocomplete="off">
+
+        <div class="form-group">
+          <span class="form-icon">@</span>
+          <input
+            type="email"
+            id="email"
+            name="email"
+            placeholder=" "
+            autocomplete="email"
+            spellcheck="false"
+          />
+          <label for="email" class="form-label">Email address</label>
+          <span class="form-error"></span>
+        </div>
+
+        <div class="form-group">
+          <span class="form-icon">⬡</span>
+          <input
+            type="password"
+            id="password"
+            name="password"
+            placeholder=" "
+            autocomplete="current-password"
+          />
+          <label for="password" class="form-label">Password</label>
+          <span class="form-error"></span>
+        </div>
+
+        <button type="submit" class="btn btn-primary" id="submit-btn">
+          Sign In
+        </button>
+
+      </form>
+
+      <div class="auth-divider">
+        <span>or</span>
+      </div>
+
+      <div class="auth-footer">
+        Don't have an account?
+        <a href="register.html">Create one →</a>
+      </div>
+
+    </div>
+  </main>
+
+  <script src="js/ui.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    // Init cursor
+    UI.initCursor();
+
+    // Redirect if already logged in
+    Auth.redirectIfAuth();
+
+    // Ripple on submit
+    const submitBtn = document.getElementById('submit-btn');
+    submitBtn.addEventListener('click', e => {
+      // ripple
+      const rect = submitBtn.getBoundingClientRect();
+      const size = Math.max(rect.width, rect.height) * 2;
+      const x = e.clientX - rect.left - size / 2;
+      const y = e.clientY - rect.top  - size / 2;
+      const ripple = document.createElement('span');
+      ripple.className = 'btn-ripple';
+      ripple.style.cssText = `width:${size}px;height:${size}px;left:${x}px;top:${y}px;`;
+      submitBtn.appendChild(ripple);
+      setTimeout(() => ripple.remove(), 600);
+    });
+
+    // Form submission
+    const form = document.getElementById('login-form');
+    form.addEventListener('submit', e => {
+      e.preventDefault();
+      Auth.handleLogin(form);
+    });
+
+    // Real-time validation clear on input
+    form.querySelectorAll('input').forEach(input => {
+      input.addEventListener('input', () => {
+        const group = input.closest('.form-group');
+        if (group) group.classList.remove('has-error');
+      });
+    });
+  </script>
+
+</body>
+</html>
