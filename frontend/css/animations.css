@@ -1,0 +1,229 @@
+/* =============================================
+   PERSONAL DIARY — ANIMATIONS.CSS
+   All keyframes and animation utilities
+   ============================================= */
+
+/* ─── Core Keyframes ────────────────────────── */
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+@keyframes slideInLeft {
+  from { transform: translateX(-16px); opacity: 0; }
+  to   { transform: translateX(0);     opacity: 1; }
+}
+
+@keyframes slideInUp {
+  from { transform: translateY(16px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+@keyframes slideInDown {
+  from { transform: translateY(-16px); opacity: 0; }
+  to   { transform: translateY(0);     opacity: 1; }
+}
+
+@keyframes scaleIn {
+  from { transform: scale(0.94); opacity: 0; }
+  to   { transform: scale(1);    opacity: 1; }
+}
+
+/* ─── Page Load ─────────────────────────────── */
+@keyframes pageFadeIn {
+  0%   { opacity: 0; transform: translateY(6px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+.page-enter {
+  animation: pageFadeIn 450ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Auth card stagger */
+.auth-card > * {
+  opacity: 0;
+  animation: slideInUp 380ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.auth-card > *:nth-child(1) { animation-delay: 50ms; }
+.auth-card > *:nth-child(2) { animation-delay: 100ms; }
+.auth-card > *:nth-child(3) { animation-delay: 150ms; }
+.auth-card > *:nth-child(4) { animation-delay: 200ms; }
+.auth-card > *:nth-child(5) { animation-delay: 250ms; }
+.auth-card > *:nth-child(6) { animation-delay: 300ms; }
+.auth-card > *:nth-child(7) { animation-delay: 350ms; }
+
+/* ─── Sidebar slide-in ──────────────────────── */
+@keyframes sidebarSlide {
+  from { transform: translateX(-16px); opacity: 0; }
+  to   { transform: translateX(0);     opacity: 1; }
+}
+
+.sidebar {
+  animation: sidebarSlide 380ms cubic-bezier(0.34, 1.56, 0.64, 1) 80ms both;
+}
+
+.entries-list-wrapper .entry-item {
+  opacity: 0;
+  animation: slideInLeft 280ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* ─── Ripple ────────────────────────────────── */
+@keyframes ripple-anim {
+  from { transform: scale(0); opacity: 1; }
+  to   { transform: scale(4); opacity: 0; }
+}
+
+/* ─── Cursor blink ──────────────────────────── */
+@keyframes cursor-blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
+/* ─── Skeleton / Shimmer ────────────────────── */
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ─── Pulse dot (autosave) ──────────────────── */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1;   transform: scale(1); }
+  50%       { opacity: 0.3; transform: scale(0.75); }
+}
+
+/* ─── Spin ──────────────────────────────────── */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* ─── Toast ─────────────────────────────────── */
+@keyframes toast-in {
+  from { transform: translateX(16px) scale(0.96); opacity: 0; }
+  to   { transform: translateX(0)    scale(1);    opacity: 1; }
+}
+
+@keyframes toast-out {
+  from { transform: translateX(0)    scale(1);    opacity: 1; }
+  to   { transform: translateX(16px) scale(0.96); opacity: 0; }
+}
+
+/* ─── Modal ─────────────────────────────────── */
+@keyframes modal-in {
+  from { transform: translateY(-16px) scale(0.96); opacity: 0; }
+  to   { transform: translateY(0)     scale(1);    opacity: 1; }
+}
+
+@keyframes modal-out {
+  from { transform: translateY(0)     scale(1);    opacity: 1; }
+  to   { transform: translateY(-8px)  scale(0.97); opacity: 0; }
+}
+
+/* ─── Editor typing animation ───────────────── */
+@keyframes editor-reveal {
+  from { opacity: 0; transform: translateY(5px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.editor-content-area {
+  animation: editor-reveal 380ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+/* ─── Page transition overlay ───────────────── */
+.page-transition {
+  position: fixed;
+  inset: 0;
+  background: var(--page-transition-bg);
+  z-index: 9999;
+  pointer-events: none;
+  animation: pageFadeIn 350ms ease reverse both;
+}
+
+/* ─── Autosave saved flash ──────────────────── */
+@keyframes saved-flash {
+  0%   { opacity: 0; transform: translateY(3px); }
+  20%  { opacity: 1; transform: translateY(0); }
+  80%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* ─── New entry button border pulse ──────────── */
+@keyframes border-pulse {
+  0%, 100% { border-color: rgba(143, 166, 133, 0.4); }
+  50%       { border-color: rgba(143, 166, 133, 0.75); }
+}
+
+.new-entry-btn {
+  animation: border-pulse 3.5s ease-in-out infinite;
+}
+
+.new-entry-btn:hover {
+  animation: none;
+}
+
+/* ─── Glow pulse on cursor dot ──────────────── */
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 5px rgba(143, 166, 133, 0.5); }
+  50%       { box-shadow: 0 0 12px rgba(143, 166, 133, 0.85); }
+}
+
+.cursor-dot {
+  animation: glow-pulse 2.2s ease-in-out infinite;
+}
+
+/* ─── Sidebar section enter stagger ─────────── */
+.sidebar-header,
+.sidebar-actions,
+.entries-list-wrapper,
+.sidebar-footer {
+  opacity: 0;
+  animation: slideInLeft 320ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.sidebar-header       { animation-delay: 40ms; }
+.sidebar-actions      { animation-delay: 90ms; }
+.entries-list-wrapper { animation-delay: 130ms; }
+.sidebar-footer       { animation-delay: 170ms; }
+
+/* ─── Theme toggle rotation ──────────────────── */
+@keyframes spin-once {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+.theme-toggle.spinning {
+  animation: spin-once 400ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* ─── Card hover ─────────────────────────────── */
+.auth-card {
+  transition: box-shadow 300ms ease;
+}
+
+/* ─── Entry hover elevation ─────────────────── */
+.entry-item:hover .entry-item-preview {
+  color: var(--ink-primary);
+  transition: color 150ms ease;
+}
+
+/* ─── Smooth scrollbar ───────────────────────── */
+html {
+  scroll-behavior: smooth;
+}
+
+/* ─── Search bar focus ring ─────────────────── */
+.search-bar input {
+  transition: border-color 200ms ease, box-shadow 200ms ease;
+}
+
+/* ─── Sticky header shadow ───────────────────── */
+.editor-header {
+  transition: box-shadow 280ms ease, background 300ms ease;
+}

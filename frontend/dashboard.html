@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Diary — Folio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/animations.css" />
+  <style>
+    /* ─── Dashboard-specific styles ─── */
+    .dashboard {
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Sidebar overlay for mobile */
+    .sidebar-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(44,44,44,0.3);
+      z-index: 99;
+      backdrop-filter: blur(4px);
+    }
+
+    @media (max-width: 768px) {
+      .sidebar-overlay.active { display: block; }
+    }
+
+    /* ─── Main area ─── */
+    .main-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* ─── Editor wrap ─── */
+    #editor-wrap {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    #editor-scroll {
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    /* ─── Welcome screen ─── */
+    #welcome-screen {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 3rem 2rem;
+      text-align: center;
+      background: var(--bg-void);
+    }
+
+    .welcome-quote {
+      font-style: italic;
+      font-size: 0.9rem;
+      color: var(--ink-muted);
+      font-family: var(--font-body);
+      max-width: 320px;
+      line-height: 1.9;
+      letter-spacing: 0.01em;
+    }
+
+    .welcome-orb {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      border: 1.5px solid rgba(143,166,133,0.25);
+      display: grid;
+      place-items: center;
+      font-size: 1.75rem;
+      margin-bottom: 1.5rem;
+      position: relative;
+    }
+
+    .welcome-orb::before {
+      content: '';
+      position: absolute;
+      inset: -8px;
+      border-radius: 50%;
+      border: 1px solid rgba(143,166,133,0.10);
+    }
+
+    /* ─── Mood row ─── */
+    .mood-section {
+      padding: 0 4rem 1rem;
+      max-width: 800px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    .mood-label {
+      font-family: var(--font-mono);
+      font-size: 0.6rem;
+      color: var(--ink-ghost);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-bottom: 0.5rem;
+    }
+
+    /* ─── Editor footer ─── */
+    .editor-footer {
+      padding: 0 4rem 1.5rem;
+      max-width: 800px;
+      width: 100%;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      border-top: 1px solid var(--border-subtle);
+      padding-top: 1rem;
+    }
+
+    @media (max-width: 768px) {
+      .mood-section,
+      .editor-footer { padding-left: 1.5rem; padding-right: 1.5rem; }
+    }
+
+    /* ─── Entry count badge ─── */
+    .entries-count {
+      font-family: var(--font-mono);
+      font-size: 0.58rem;
+      color: var(--ink-ghost);
+      letter-spacing: 0.08em;
+      padding: 0 1rem 0.4rem;
+      text-transform: uppercase;
+    }
+
+    /* ─── Mobile toggle ─── */
+    .mobile-toggle {
+      display: none;
+      background: none;
+      border: none;
+      color: var(--ink-secondary);
+      cursor: none;
+      padding: 0.3rem 0.5rem;
+      font-size: 1rem;
+      line-height: 1;
+      border-radius: var(--radius-sm);
+      transition: color var(--transition-fast);
+    }
+
+    @media (max-width: 768px) {
+      .mobile-toggle { display: flex; align-items: center; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="dashboard page-enter">
+
+  <!-- ════════════════════ SIDEBAR ════════════════════ -->
+  <aside class="sidebar" id="sidebar">
+
+    <!-- Header -->
+    <div class="sidebar-header">
+      <div class="sidebar-logo">
+        <div class="sidebar-logo-mark">✦</div>
+        <span class="sidebar-logo-name">Folio</span>
+      </div>
+
+      <!-- Search -->
+      <div class="search-bar">
+        <span class="search-icon">⌕</span>
+        <input
+          type="text"
+          id="search-input"
+          placeholder="Search entries…"
+          autocomplete="off"
+          spellcheck="false"
+        />
+      </div>
+    </div>
+
+    <!-- New Entry -->
+    <div class="sidebar-actions">
+      <button class="new-entry-btn" id="new-entry-btn">
+        <span>+</span>
+        <span>New Entry</span>
+      </button>
+    </div>
+
+    <!-- Entries count -->
+    <div class="entries-count" id="entries-count"></div>
+
+    <!-- Entry List -->
+    <div class="entries-list-wrapper" id="entries-list">
+      <!-- Rendered by JS -->
+    </div>
+
+    <!-- Footer / User -->
+    <div class="sidebar-footer">
+      <div class="user-info">
+        <div class="user-avatar" id="user-avatar">?</div>
+        <span class="user-name" id="user-name">Loading…</span>
+      </div>
+
+      <!-- Dark mode toggle -->
+      <button class="theme-toggle" id="theme-toggle" title="Switch to dark mode">◑</button>
+
+      <!-- Logout -->
+      <button class="logout-btn" id="logout-btn" title="Sign out">
+        <span>⇥</span>
+        <span>Out</span>
+      </button>
+    </div>
+
+  </aside>
+
+  <!-- Mobile overlay -->
+  <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+  <!-- ════════════════════ MAIN AREA ════════════════════ -->
+  <main class="main-area">
+
+    <!-- Editor Header / Toolbar -->
+    <header class="editor-header" id="editor-header">
+      <div class="editor-header-left">
+        <!-- Mobile toggle -->
+        <button class="mobile-toggle" id="mobile-toggle">☰</button>
+
+        <div class="entry-timestamp-display">
+          <span id="editor-date-header"></span>
+          <span style="color:var(--border-visible);margin:0 0.4rem;">·</span>
+          <span class="live-time" id="live-time"></span>
+        </div>
+      </div>
+
+      <div class="editor-header-right">
+        <!-- Autosave indicator -->
+        <div class="autosave-indicator" id="autosave-indicator">
+          <div class="autosave-dot" id="autosave-dot"></div>
+          <span id="autosave-text">Saved</span>
+        </div>
+
+        <!-- Word count -->
+        <span class="word-count" id="word-count" style="display:none"></span>
+
+        <!-- Action buttons -->
+        <button class="btn btn-danger btn-sm" id="delete-btn" style="display:none">
+          Delete
+        </button>
+        <button class="btn btn-ghost btn-sm" id="save-btn" style="display:none">
+          Save
+        </button>
+      </div>
+    </header>
+
+    <!-- Welcome Screen -->
+    <div id="welcome-screen">
+      <div class="welcome-orb">📖</div>
+      <h1 class="welcome-title">Your diary awaits.</h1>
+      <div class="welcome-divider"></div>
+      <p class="welcome-quote">
+        "Fill your paper with the breathings of your heart."<br>
+        — William Wordsworth
+      </p>
+      <br />
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('new-entry-btn').click()" style="margin-top:1rem">
+        Start writing →
+      </button>
+    </div>
+
+    <!-- Editor Wrap (hidden until entry selected/created) -->
+    <div id="editor-wrap" style="display:none; flex-direction:column; flex:1; overflow:hidden;">
+
+      <div id="editor-scroll" style="flex:1; overflow-y:auto;">
+
+        <!-- Editor body -->
+        <div class="editor-body">
+
+          <!-- Date heading -->
+          <div class="editor-date-display" id="editor-date"></div>
+
+          <!-- Textarea -->
+          <textarea
+            id="entry-editor"
+            class="editor-textarea"
+            placeholder="Begin writing… let the words come."
+            spellcheck="true"
+            autocorrect="on"
+          ></textarea>
+
+        </div>
+
+      </div>
+
+      <!-- Mood row -->
+      <div class="mood-section">
+        <div class="mood-label">Mood</div>
+        <div class="mood-row">
+          <button class="mood-btn" data-mood="happy">☀ Happy</button>
+          <button class="mood-btn" data-mood="calm">◌ Calm</button>
+          <button class="mood-btn" data-mood="reflective">◎ Reflective</button>
+          <button class="mood-btn" data-mood="anxious">◈ Anxious</button>
+          <button class="mood-btn" data-mood="sad">◇ Sad</button>
+          <button class="mood-btn" data-mood="grateful">✦ Grateful</button>
+        </div>
+      </div>
+
+      <!-- Editor footer -->
+      <div class="editor-footer">
+        <button class="btn btn-primary btn-sm" id="save-btn-footer">Save Entry</button>
+        <button class="btn btn-danger btn-sm" id="delete-btn-footer" style="display:none">Delete</button>
+      </div>
+
+    </div>
+
+  </main>
+
+</div>
+
+<!-- Scripts (order matters) -->
+<script src="js/ui.js"></script>
+<script src="js/api.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/diary.js"></script>
+<script>
+  // Apply saved theme immediately (before any render)
+  UI.initTheme();
+
+  // Auth guard
+  if (!Auth.requireAuth()) {
+    // redirected to login.html
+  } else {
+    // Init diary
+    Diary.init();
+
+    // ── Dark mode toggle ──────────────────────
+    document.getElementById('theme-toggle')?.addEventListener('click', () => {
+      UI.toggleTheme();
+    });
+
+    // ── Logout ────────────────────────────────
+    // Handled by Auth.logout() wired in diary.js,
+    // but also wire the button directly as a safety net.
+    document.getElementById('logout-btn')?.addEventListener('click', () => {
+      localStorage.removeItem('diary_token');
+      localStorage.removeItem('diary_user');
+      UI.navigateWithTransition('login.html');
+    });
+
+    // ── Footer save/delete proxies ────────────
+    document.getElementById('save-btn-footer')?.addEventListener('click', () => {
+      document.getElementById('save-btn').click();
+    });
+
+    document.getElementById('delete-btn-footer')?.addEventListener('click', () => {
+      document.getElementById('delete-btn').click();
+    });
+
+    // ── Sync button/wordcount visibility with editor wrap ──
+    const editorObserver = new MutationObserver(() => {
+      const wrap    = document.getElementById('editor-wrap');
+      const visible = wrap.style.display !== 'none';
+      const wc      = document.getElementById('word-count');
+      const saveBtn = document.getElementById('save-btn');
+      if (wc)      wc.style.display      = visible ? 'block' : 'none';
+      if (saveBtn) saveBtn.style.display  = visible ? 'flex'  : 'none';
+    });
+
+    const editorWrap = document.getElementById('editor-wrap');
+    if (editorWrap) {
+      editorObserver.observe(editorWrap, { attributes: true, attributeFilter: ['style'] });
+    }
+
+    // ── Mobile sidebar toggle ─────────────────
+    const sidebar        = document.getElementById('sidebar');
+    const sidebarOverlay = document.getElementById('sidebar-overlay');
+    const mobileToggle   = document.getElementById('mobile-toggle');
+
+    mobileToggle?.addEventListener('click', () => {
+      sidebar.classList.toggle('open');
+      sidebarOverlay.classList.toggle('active');
+    });
+
+    sidebarOverlay?.addEventListener('click', () => {
+      sidebar.classList.remove('open');
+      sidebarOverlay.classList.remove('active');
+    });
+
+    document.getElementById('entries-list')?.addEventListener('click', () => {
+      if (window.innerWidth < 769) {
+        sidebar.classList.remove('open');
+        sidebarOverlay.classList.remove('active');
+      }
+    });
+
+    // ── Sync editor-date-header with editor-date ──
+    const editorDate       = document.getElementById('editor-date');
+    const editorDateHeader = document.getElementById('editor-date-header');
+
+    const syncHeaderDate = new MutationObserver(() => {
+      if (editorDateHeader && editorDate) {
+        editorDateHeader.textContent = editorDate.textContent;
+      }
+    });
+
+    if (editorDate) {
+      syncHeaderDate.observe(editorDate, { childList: true, characterData: true, subtree: true });
+    }
+  }
+</script>
+
+</body>
+</html>
