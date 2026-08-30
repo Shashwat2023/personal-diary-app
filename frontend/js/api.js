@@ -38,6 +38,11 @@ const API = (() => {
       console.log(`[API] ${method} ${path} →`, response.status, data);
 
       if (!response.ok) {
+        if ((response.status === 401 || response.status === 403) && getToken()) {
+          localStorage.removeItem('diary_token');
+          localStorage.removeItem('diary_user');
+          window.location.href = 'login.html';
+        }
         throw new Error(data.message || data.error || `HTTP ${response.status}`);
       }
       return data;
