@@ -130,11 +130,12 @@ app.post('/api/auth/register', async (req, res) => {
       user: result.rows[0]
     });
   } catch (err) {
-    console.error('Register error:', err.message);
+    console.error('Register error:', err);
 
     res.status(500).json({
       success: false,
-      message: err.message
+      message: err.message,
+      code: err.code
     });
   }
 });
