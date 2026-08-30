@@ -14,7 +14,14 @@ const Diary = (() => {
     autoSaveTimeout: null,
     lastSavedContent: '',
     selectedMood: null,
-    isDirty: false
+    isDirty: false,
+    filterMood: '',
+    filterTag: '',
+    sortBy: 'newest',
+    viewMode: 'list',   // 'list' | 'trash'
+    isPreview: false,
+    tagsInput: '',
+    category: ''
   };
 
   // ─── DOM refs ───────────────────────────────
@@ -43,6 +50,19 @@ const Diary = (() => {
       editorScroll:   document.getElementById('editor-scroll'),
       liveTime:       document.getElementById('live-time'),
       entriesCount:   document.getElementById('entries-count'),
+      filterMood:     document.getElementById('filter-mood'),
+      filterTag:      document.getElementById('filter-tag'),
+      sortSelect:     document.getElementById('sort-select'),
+      streakBadge:    document.getElementById('streak-badge'),
+      trashBtn:       document.getElementById('trash-toggle-btn'),
+      exportBtn:      document.getElementById('export-json-btn'),
+      favoriteBtn:    document.getElementById('favorite-btn'),
+      pinBtn:         document.getElementById('pin-btn'),
+      previewBtn:     document.getElementById('preview-btn'),
+      preview:        document.getElementById('entry-preview'),
+      readingTimeEl:  document.getElementById('reading-time'),
+      categorySelect: document.getElementById('category-select'),
+      tagsInput:      document.getElementById('tags-input'),
     };
   }
 
@@ -67,8 +87,20 @@ const Diary = (() => {
 
     // Load entries from backend
     await loadEntries();
+    loadStreak();
 
     // Events
+    if (DOM.filterMood) DOM.filterMood.addEventListener('change', e => { state.filterMood = e.target.value; renderSidebar(); });
+    if (DOM.filterTag)  DOM.filterTag.addEventListener('input', e => { state.filterTag = e.target.value.toLowerCase().trim(); renderSidebar(); });
+    if (DOM.sortSelect) DOM.sortSelect.addEventListener('change', e => { state.sortBy = e.target.value; renderSidebar(); });
+    if (DOM.trashBtn)   DOM.trashBtn.addEventListener('click', toggleTrashView);
+    if (DOM.exportBtn)  DOM.exportBtn.addEventListener('click', exportJSON);
+    if (DOM.favoriteBtn) DOM.favoriteBtn.addEventListener('click', toggleFavorite);
+    if (DOM.pinBtn)       DOM.pinBtn.addEventListener('click', togglePin);
+    if (DOM.previewBtn)   DOM.previewBtn.addEventListener('click', togglePreview);
+    if (DOM.categorySelect) DOM.categorySelect.addEventListener('change', () => { state.isDirty = true; scheduleAutoSave(); });
+    if (DOM.tagsInput)      DOM.tagsInput.addEventListener('input', () => { state.isDirty = true; scheduleAutoSave(); });
+
     if (DOM.newBtn)      DOM.newBtn.addEventListener('click', newEntry);
     if (DOM.saveBtn)     DOM.saveBtn.addEventListener('click', () => saveActive());
     if (DOM.deleteBtn)   DOM.deleteBtn.addEventListener('click', confirmDelete);
@@ -145,22 +177,40 @@ const Diary = (() => {
 
     if (query) {
       filtered = filtered.filter(e =>
-        e.content.toLowerCase().includes(query)
+        e.content.toLowerCase().includes(query) ||
+        (e.title || '').toLowerCase().includes(query)
       );
+    }
+    if (state.filterMood) {
+      filtered = filtered.filter(e => e.mood === state.filterMood);
+    }
+    if (state.filterTag) {
+      filtered = filtered.filter(e => (e.tags || []).some(t => t.toLowerCase().includes(state.filterTag)));
+    }
+
+    // Sort
+    filtered = [...filtered].sort((a, b) => {
+      if (state.sortBy === 'oldest') return new Date(a.created_at) - new Date(b.created_at);
+      if (state.sortBy === 'longest') return (b.content || '').length - (a.content || '').length;
+      return new Date(b.created_at) - new Date(a.created_at); // newest
+    });
+    // Pinned entries float to top (list view only)
+    if (state.viewMode === 'list') {
+      filtered = [...filtered.filter(e => e.is_pinned), ...filtered.filter(e => !e.is_pinned)];
     }
 
     // Update entry count
     if (DOM.entriesCount) {
       DOM.entriesCount.textContent = state.entries.length
-        ? `${state.entries.length} entr${state.entries.length === 1 ? 'y' : 'ies'}`
+        ? `${filtered.length} of ${state.entries.length} entr${state.entries.length === 1 ? 'y' : 'ies'}`
         : '';
     }
 
     if (filtered.length === 0) {
       DOM.entriesList.innerHTML = `
         <div class="empty-state">
-          <div class="empty-state-icon">${query ? '🔍' : '📖'}</div>
-          <p class="empty-state-text">${query ? 'No entries match your search.' : 'No entries yet.\nStart writing your first page.'}</p>
+          <div class="empty-state-icon">${state.viewMode === 'trash' ? '🗑' : (query ? '🔍' : '📖')}</div>
+          <p class="empty-state-text">${state.viewMode === 'trash' ? 'Trash is empty.' : (query ? 'No entries match your search.' : 'No entries yet.\nStart writing your first page.')}</p>
         </div>`;
       return;
     }
@@ -187,16 +237,34 @@ const Diary = (() => {
         item.style.animationDelay = `${idx * 40}ms`;
 
         const preview = UI.getPreview(entry.content);
-        item.innerHTML = `
-          <div class="entry-item-date">${UI.formatDate(entry.created_at)} · ${UI.formatTime(entry.created_at)}</div>
-          <div class="entry-item-preview">${highlight(preview, query)}</div>
-        `;
-        item.addEventListener('click', () => openEntry(entry.id));
+        const badges = `${entry.is_pinned ? '📌 ' : ''}${entry.is_favorite ? '★ ' : ''}`;
+        if (state.viewMode === 'trash') {
+          item.innerHTML = `
+            <div class="entry-item-date">${badges}${UI.formatDate(entry.created_at)} · ${UI.formatTime(entry.created_at)}</div>
+            <div class="entry-item-preview">${highlight(preview, query)}</div>
+            <div style="display:flex;gap:0.4rem;margin-top:0.35rem;">
+              <button class="btn btn-ghost btn-sm restore-btn" data-id="${entry.id}">Restore</button>
+              <button class="btn btn-danger btn-sm perm-delete-btn" data-id="${entry.id}">Delete forever</button>
+            </div>`;
+        } else {
+          item.innerHTML = `
+            <div class="entry-item-date">${badges}${UI.formatDate(entry.created_at)} · ${UI.formatTime(entry.created_at)}</div>
+            <div class="entry-item-preview">${highlight(preview, query)}</div>
+          `;
+          item.addEventListener('click', () => openEntry(entry.id));
+        }
         groupEl.appendChild(item);
       });
 
       DOM.entriesList.appendChild(groupEl);
     });
+
+    if (state.viewMode === 'trash') {
+      DOM.entriesList.querySelectorAll('.restore-btn').forEach(btn =>
+        btn.addEventListener('click', e => { e.stopPropagation(); restoreEntry(btn.dataset.id); }));
+      DOM.entriesList.querySelectorAll('.perm-delete-btn').forEach(btn =>
+        btn.addEventListener('click', e => { e.stopPropagation(); permanentDelete(btn.dataset.id); }));
+    }
   }
 
   function highlight(text, query) {
@@ -225,12 +293,19 @@ const Diary = (() => {
     state.selectedMood = entry.mood || null;
     state.lastSavedContent = entry.content;
     state.isDirty = false;
+    state.isPreview = false;
 
     // Update editor
     showEditor();
     DOM.editor.value = entry.content;
+    DOM.editor.style.display = 'block';
+    if (DOM.preview) DOM.preview.style.display = 'none';
     updateEditorDate(entry.created_at);
     updateWordCount();
+
+    if (DOM.categorySelect) DOM.categorySelect.value = entry.category || '';
+    if (DOM.tagsInput) DOM.tagsInput.value = (entry.tags || []).join(', ');
+    updateFavPinButtons(entry.is_favorite, entry.is_pinned);
 
     // Mood
     if (DOM.moodBtns) {
@@ -243,6 +318,9 @@ const Diary = (() => {
     if (DOM.deleteBtn) {
       DOM.deleteBtn.style.display = 'flex';
     }
+    if (DOM.favoriteBtn) DOM.favoriteBtn.style.display = 'flex';
+    if (DOM.pinBtn) DOM.pinBtn.style.display = 'flex';
+    if (DOM.previewBtn) DOM.previewBtn.style.display = 'flex';
 
     // Show footer delete button
     const deleteFooter = document.getElementById('delete-btn-footer');
@@ -269,12 +347,18 @@ const Diary = (() => {
 
     showEditor();
     DOM.editor.value = '';
+    DOM.editor.style.display = 'block';
+    if (DOM.preview) DOM.preview.style.display = 'none';
+    state.isPreview = false;
     updateEditorDate(new Date().toISOString());
     updateWordCount();
 
     if (DOM.moodBtns) {
       DOM.moodBtns.forEach(b => b.classList.remove('selected'));
     }
+    if (DOM.categorySelect) DOM.categorySelect.value = '';
+    if (DOM.tagsInput) DOM.tagsInput.value = '';
+    updateFavPinButtons(false, false);
 
     // Hide delete button for new (unsaved) entries
     if (DOM.deleteBtn) {
@@ -282,6 +366,9 @@ const Diary = (() => {
     }
     const deleteFooter = document.getElementById('delete-btn-footer');
     if (deleteFooter) deleteFooter.style.display = 'none';
+    if (DOM.favoriteBtn) DOM.favoriteBtn.style.display = 'none';
+    if (DOM.pinBtn) DOM.pinBtn.style.display = 'none';
+    if (DOM.previewBtn) DOM.previewBtn.style.display = 'flex';
 
     renderSidebar();
     DOM.editor.focus();
@@ -313,13 +400,18 @@ const Diary = (() => {
 
     showAutosave('saving');
 
+    const tags = DOM.tagsInput?.value
+      ? DOM.tagsInput.value.split(',').map(t => t.trim()).filter(Boolean)
+      : [];
+    const category = DOM.categorySelect?.value || null;
+
     try {
       let saved;
 
       if (state.isNew || !state.activeId) {
         // CREATE
         console.log('[Diary] Creating new entry…');
-        const data = await API.createEntry({ content, mood: state.selectedMood });
+        const data = await API.createEntry({ content, mood: state.selectedMood, tags, category });
         console.log('[Diary] Create response:', data);
 
         saved = data.entry || data;
@@ -330,13 +422,16 @@ const Diary = (() => {
         // FIX 4: Re-fetch all entries from backend after create so sidebar
         //         is always an accurate reflection of the database.
         await loadEntries();
+        loadStreak();
+        if (DOM.favoriteBtn) DOM.favoriteBtn.style.display = 'flex';
+        if (DOM.pinBtn) DOM.pinBtn.style.display = 'flex';
 
         if (!silent) UI.showToast('Entry saved.', 'success');
 
       } else {
         // UPDATE
         console.log(`[Diary] Updating entry ${state.activeId}…`);
-        const data = await API.updateEntry(state.activeId, { content, mood: state.selectedMood });
+        const data = await API.updateEntry(state.activeId, { content, mood: state.selectedMood, tags, category });
         console.log('[Diary] Update response:', data);
 
         saved = data.entry || data;
@@ -442,6 +537,11 @@ const Diary = (() => {
     if (!DOM.wordCountEl || !DOM.editor) return;
     const wc = UI.wordCount(DOM.editor.value);
     DOM.wordCountEl.textContent = `${wc} word${wc !== 1 ? 's' : ''}`;
+    if (DOM.readingTimeEl) {
+      const mins = Math.max(1, Math.round(wc / 200));
+      DOM.readingTimeEl.textContent = `${mins} min read`;
+      DOM.readingTimeEl.style.display = wc > 0 ? 'block' : 'none';
+    }
   }
 
   function updateEditorDate(dateStr) {
@@ -470,6 +570,157 @@ const Diary = (() => {
     } else {
       el.classList.remove('visible', 'saving', 'saved');
     }
+  }
+
+  // ─── Favorite / Pin ──────────────────────────
+  function updateFavPinButtons(isFav, isPinned) {
+    if (DOM.favoriteBtn) {
+      DOM.favoriteBtn.textContent = isFav ? '★' : '☆';
+      DOM.favoriteBtn.classList.toggle('selected', !!isFav);
+    }
+    if (DOM.pinBtn) {
+      DOM.pinBtn.classList.toggle('selected', !!isPinned);
+    }
+  }
+
+  async function toggleFavorite() {
+    if (!state.activeId) return;
+    const entry = state.entries.find(e => e.id === state.activeId);
+    if (!entry) return;
+    const next = !entry.is_favorite;
+    try {
+      await API.updateEntry(state.activeId, { content: entry.content, mood: entry.mood, tags: entry.tags, category: entry.category, is_favorite: next });
+      entry.is_favorite = next;
+      updateFavPinButtons(entry.is_favorite, entry.is_pinned);
+      UI.showToast(next ? 'Added to favorites.' : 'Removed from favorites.', 'success');
+    } catch (err) {
+      UI.showToast(err.message || 'Failed to update favorite.', 'error');
+    }
+  }
+
+  async function togglePin() {
+    if (!state.activeId) return;
+    const entry = state.entries.find(e => e.id === state.activeId);
+    if (!entry) return;
+    const next = !entry.is_pinned;
+    try {
+      await API.updateEntry(state.activeId, { content: entry.content, mood: entry.mood, tags: entry.tags, category: entry.category, is_pinned: next });
+      entry.is_pinned = next;
+      updateFavPinButtons(entry.is_favorite, entry.is_pinned);
+      renderSidebar();
+      UI.showToast(next ? 'Entry pinned.' : 'Entry unpinned.', 'success');
+    } catch (err) {
+      UI.showToast(err.message || 'Failed to update pin.', 'error');
+    }
+  }
+
+  // ─── Markdown preview ────────────────────────
+  function renderMarkdown(src) {
+    let html = escapeHtml(src);
+    html = html
+      .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+      .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+      .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.+?)\*/g, '<em>$1</em>')
+      .replace(/`(.+?)`/g, '<code>$1</code>')
+      .replace(/^- (.*$)/gim, '<li>$1</li>')
+      .replace(/\n/g, '<br>');
+    return html.replace(/(<li>.*<\/li>)(<br>)?/g, m => m).replace(/(<li>[\s\S]*?<\/li>)/g, '<ul>$1</ul>');
+  }
+
+  function togglePreview() {
+    if (!DOM.editor || !DOM.preview) return;
+    state.isPreview = !state.isPreview;
+    if (state.isPreview) {
+      DOM.preview.innerHTML = renderMarkdown(DOM.editor.value || '');
+      DOM.editor.style.display = 'none';
+      DOM.preview.style.display = 'block';
+      DOM.previewBtn.textContent = 'Edit';
+    } else {
+      DOM.editor.style.display = 'block';
+      DOM.preview.style.display = 'none';
+      DOM.previewBtn.textContent = 'Preview';
+    }
+  }
+
+  // ─── Trash ────────────────────────────────────
+  async function toggleTrashView() {
+    state.viewMode = state.viewMode === 'trash' ? 'list' : 'trash';
+    if (DOM.trashBtn) DOM.trashBtn.textContent = state.viewMode === 'trash' ? '📖 Entries' : '🗑 Trash';
+    if (state.viewMode === 'trash') {
+      await loadTrash();
+    } else {
+      await loadEntries();
+    }
+  }
+
+  async function loadTrash() {
+    UI.renderSkeletons(DOM.entriesList);
+    try {
+      const data = await API.getTrash();
+      state.entries = data.entries || [];
+      renderSidebar();
+    } catch (err) {
+      UI.showToast(err.message || 'Failed to load trash.', 'error');
+    }
+  }
+
+  async function restoreEntry(id) {
+    try {
+      await API.restoreEntry(id);
+      UI.showToast('Entry restored.', 'success');
+      await loadTrash();
+    } catch (err) {
+      UI.showToast(err.message || 'Restore failed.', 'error');
+    }
+  }
+
+  function permanentDelete(id) {
+    UI.showConfirm({
+      title: 'Delete forever?',
+      body: 'This entry will be permanently removed and cannot be recovered.',
+      confirmText: 'Delete forever',
+      onConfirm: async () => {
+        try {
+          await API.permanentDeleteEntry(id);
+          UI.showToast('Entry permanently deleted.', 'success');
+          await loadTrash();
+        } catch (err) {
+          UI.showToast(err.message || 'Delete failed.', 'error');
+        }
+      }
+    });
+  }
+
+  // ─── Streak ───────────────────────────────────
+  async function loadStreak() {
+    if (!DOM.streakBadge) return;
+    try {
+      const stats = await API.getStats();
+      if (stats.streak > 0) {
+        DOM.streakBadge.textContent = `🔥 ${stats.streak} day${stats.streak !== 1 ? 's' : ''} streak`;
+        DOM.streakBadge.style.display = 'block';
+      } else {
+        DOM.streakBadge.style.display = 'none';
+      }
+    } catch (err) {
+      console.warn('[Diary] Could not load streak:', err.message);
+    }
+  }
+
+  // ─── Export ───────────────────────────────────
+  function exportJSON() {
+    const blob = new Blob([JSON.stringify(state.entries, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `diary-export-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    UI.showToast('Entries exported.', 'success');
   }
 
   // ─── Public ─────────────────────────────────

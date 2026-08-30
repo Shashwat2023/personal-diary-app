@@ -61,16 +61,32 @@ const API = (() => {
     return request('GET', '/entries');
   }
 
-  async function createEntry({ content, mood }) {
-    return request('POST', '/entries', { content, mood });
+  async function createEntry({ content, mood, tags, category }) {
+    return request('POST', '/entries', { content, mood, tags, category });
   }
 
-  async function updateEntry(id, { content, mood }) {
-    return request('PUT', `/entries/${id}`, { content, mood });
+  async function updateEntry(id, { content, mood, tags, category, is_favorite, is_pinned }) {
+    return request('PUT', `/entries/${id}`, { content, mood, tags, category, is_favorite, is_pinned });
   }
 
   async function deleteEntry(id) {
     return request('DELETE', `/entries/${id}`);
+  }
+
+  async function getTrash() {
+    return request('GET', '/entries/trash');
+  }
+
+  async function restoreEntry(id) {
+    return request('POST', `/entries/${id}/restore`);
+  }
+
+  async function permanentDeleteEntry(id) {
+    return request('DELETE', `/entries/${id}/permanent`);
+  }
+
+  async function getStats() {
+    return request('GET', '/stats');
   }
 
   // ─── Public API ────────────────────────────
@@ -81,6 +97,10 @@ const API = (() => {
     createEntry,
     updateEntry,
     deleteEntry,
+    getTrash,
+    restoreEntry,
+    permanentDeleteEntry,
+    getStats,
     getToken,
     isAuthenticated: () => !!getToken()
   };

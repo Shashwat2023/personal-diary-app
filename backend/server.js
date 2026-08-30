@@ -211,7 +211,7 @@ app.post('/api/auth/login', async (req, res) => {
 
 app.post('/api/entries', authenticateToken, async (req, res) => {
   try {
-    const { title, content, mood, tags } = req.body;
+    const { title, content, mood, tags, category } = req.body;
 
     if (!content) {
       return res.status(400).json({
@@ -222,15 +222,16 @@ app.post('/api/entries', authenticateToken, async (req, res) => {
 
     const result = await pool.query(
       `INSERT INTO entries
-       (user_id, title, content, mood, tags)
-       VALUES ($1, $2, $3, $4, $5)
+       (user_id, title, content, mood, tags, category)
+       VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING *`,
       [
         req.user.id,
         title || null,
         content,
         mood || null,
-        tags || null
+        tags || null,
+        category || null
       ]
     );
 
@@ -275,16 +276,19 @@ app.get('/api/entries', authenticateToken, async (req, res) => {
 
 app.put('/api/entries/:id', authenticateToken, async (req, res) => {
   try {
-    const { title, content, mood, tags } = req.body;
+    const { title, content, mood, tags, category, is_favorite, is_pinned } = req.body;
 
     const result = await pool.query(
       `UPDATE entries
        SET title = $1,
            content = $2,
            mood = $3,
-           tags = $4
-       WHERE id = $5
-       AND user_id = $6
+           tags = $4,
+           category = $5,
+           is_favorite = COALESCE($6, is_favorite),
+           is_pinned = COALESCE($7, is_pinned)
+       WHERE id = $8
+       AND user_id = $9
        AND deleted_at IS NULL
        RETURNING *`,
       [
@@ -292,6 +296,9 @@ app.put('/api/entries/:id', authenticateToken, async (req, res) => {
         content,
         mood || null,
         tags || null,
+        category || null,
+        typeof is_favorite === 'boolean' ? is_favorite : null,
+        typeof is_pinned === 'boolean' ? is_pinned : null,
         req.params.id,
         req.user.id
       ]
@@ -348,6 +355,99 @@ app.delete('/api/entries/:id', authenticateToken, async (req, res) => {
       success: false,
       message: err.message
     });
+  }
+});
+
+// ─── Trash (soft-deleted entries) ─────────────
+app.get('/api/entries/trash', authenticateToken, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT * FROM entries
+       WHERE user_id = $1 AND deleted_at IS NOT NULL
+       ORDER BY deleted_at DESC`,
+      [req.user.id]
+    );
+    res.json({ success: true, entries: result.rows });
+  } catch (err) {
+    console.error('Get trash error:', err.message);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+app.post('/api/entries/:id/restore', authenticateToken, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `UPDATE entries SET deleted_at = NULL
+       WHERE id = $1 AND user_id = $2 AND deleted_at IS NOT NULL
+       RETURNING *`,
+      [req.params.id, req.user.id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Entry not found' });
+    }
+    res.json({ success: true, entry: result.rows[0] });
+  } catch (err) {
+    console.error('Restore entry error:', err.message);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+app.delete('/api/entries/:id/permanent', authenticateToken, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `DELETE FROM entries WHERE id = $1 AND user_id = $2 AND deleted_at IS NOT NULL RETURNING id`,
+      [req.params.id, req.user.id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Entry not found' });
+    }
+    res.json({ success: true, message: 'Entry permanently deleted' });
+  } catch (err) {
+    console.error('Permanent delete error:', err.message);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ─── Stats (mood/tag counts, streaks) ─────────
+app.get('/api/stats', authenticateToken, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT mood, tags, category, created_at
+       FROM entries WHERE user_id = $1 AND deleted_at IS NULL
+       ORDER BY created_at DESC`,
+      [req.user.id]
+    );
+
+    const rows = result.rows;
+    const moodCounts = {};
+    const tagCounts = {};
+    rows.forEach(r => {
+      if (r.mood) moodCounts[r.mood] = (moodCounts[r.mood] || 0) + 1;
+      (r.tags || []).forEach(t => { tagCounts[t] = (tagCounts[t] || 0) + 1; });
+    });
+
+    // Daily writing streak: consecutive days (including today/yesterday) with an entry
+    const days = new Set(rows.map(r => new Date(r.created_at).toISOString().slice(0, 10)));
+    let streak = 0;
+    let cursor = new Date();
+    if (!days.has(cursor.toISOString().slice(0, 10))) {
+      cursor.setDate(cursor.getDate() - 1); // allow "today not yet written" without breaking streak
+    }
+    while (days.has(cursor.toISOString().slice(0, 10))) {
+      streak++;
+      cursor.setDate(cursor.getDate() - 1);
+    }
+
+    res.json({
+      success: true,
+      totalEntries: rows.length,
+      moodCounts,
+      tagCounts,
+      streak
+    });
+  } catch (err) {
+    console.error('Stats error:', err.message);
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 

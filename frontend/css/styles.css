@@ -1183,6 +1183,11 @@ a:hover { opacity: 0.72; }
   .mobile-menu-btn { display: none !important; }
 }
 
+@media (max-width: 420px) {
+  .auth-card { padding: 1.5rem; }
+  .auth-wrapper { padding: 1rem; }
+}
+
 .mobile-menu-btn {
   background: none;
   border: none;

@@ -156,6 +156,68 @@
     @media (max-width: 768px) {
       .mobile-toggle { display: flex; align-items: center; }
     }
+
+    /* ─── Filters / streak / trash / export ─── */
+    .filter-bar {
+      display: flex;
+      gap: 0.4rem;
+      padding: 0 1rem 0.6rem;
+      flex-wrap: wrap;
+    }
+
+    .filter-select {
+      flex: 1;
+      min-width: 0;
+      font-family: var(--font-body);
+      font-size: 0.75rem;
+      padding: 0.35rem 0.5rem;
+      border: 1px solid var(--border-muted);
+      border-radius: var(--radius-sm);
+      background: var(--bg-elevated);
+      color: var(--ink-primary);
+    }
+
+    #favorite-btn.selected, #pin-btn.selected {
+      color: var(--accent-warm);
+      border-color: var(--accent-warm);
+    }
+
+    .streak-badge {
+      font-family: var(--font-mono);
+      font-size: 0.6rem;
+      color: var(--accent-warm);
+      letter-spacing: 0.06em;
+      padding: 0 1rem 0.5rem;
+      text-transform: uppercase;
+    }
+
+    #entry-preview {
+      white-space: normal;
+      overflow-wrap: break-word;
+    }
+    #entry-preview h1, #entry-preview h2, #entry-preview h3 {
+      font-family: var(--font-display);
+      margin: 0.6em 0 0.3em;
+    }
+    #entry-preview ul { padding-left: 1.4em; }
+    #entry-preview code {
+      background: var(--bg-hover);
+      padding: 0.1em 0.35em;
+      border-radius: 3px;
+      font-family: var(--font-mono);
+    }
+
+    /* ─── Small-screen refinements ─── */
+    @media (max-width: 480px) {
+      .editor-body { padding: 1.25rem 1rem; }
+      .mood-section, .editor-footer { padding-left: 1rem; padding-right: 1rem; }
+      .mood-row { gap: 0.35rem; }
+      .mood-btn { font-size: 0.7rem; padding: 0.3rem 0.55rem; }
+      .editor-header-right { gap: 0.4rem; flex-wrap: wrap; justify-content: flex-end; }
+      .word-count { display: none !important; }
+      .sidebar { width: 86vw; max-width: 320px; }
+      .filter-bar { flex-direction: column; }
+    }
   </style>
 </head>
 <body>
@@ -193,8 +255,33 @@
       </button>
     </div>
 
-    <!-- Entries count -->
+    <!-- Filter / sort bar -->
+    <div class="filter-bar">
+      <select id="filter-mood" class="filter-select" title="Filter by mood">
+        <option value="">All moods</option>
+        <option value="happy">☀ Happy</option>
+        <option value="calm">◌ Calm</option>
+        <option value="reflective">◎ Reflective</option>
+        <option value="anxious">◈ Anxious</option>
+        <option value="sad">◇ Sad</option>
+        <option value="grateful">✦ Grateful</option>
+      </select>
+      <input type="text" id="filter-tag" class="filter-select" placeholder="Filter tag…" />
+      <select id="sort-select" class="filter-select" title="Sort entries">
+        <option value="newest">Newest</option>
+        <option value="oldest">Oldest</option>
+        <option value="longest">Longest</option>
+      </select>
+    </div>
+
+    <!-- Streak + entries count -->
     <div class="entries-count" id="entries-count"></div>
+    <div class="streak-badge" id="streak-badge" style="display:none"></div>
+
+    <div class="sidebar-actions" style="padding-top:0;">
+      <button class="btn btn-ghost btn-sm" id="trash-toggle-btn" style="flex:1">🗑 Trash</button>
+      <button class="btn btn-ghost btn-sm" id="export-json-btn" style="flex:1">⇩ Export</button>
+    </div>
 
     <!-- Entry List -->
     <div class="entries-list-wrapper" id="entries-list">
@@ -248,6 +335,12 @@
 
         <!-- Word count -->
         <span class="word-count" id="word-count" style="display:none"></span>
+        <span class="word-count" id="reading-time" style="display:none"></span>
+
+        <!-- Favorite / Pin / Preview -->
+        <button class="btn btn-ghost btn-sm" id="favorite-btn" style="display:none" title="Favorite">☆</button>
+        <button class="btn btn-ghost btn-sm" id="pin-btn" style="display:none" title="Pin">📌</button>
+        <button class="btn btn-ghost btn-sm" id="preview-btn" style="display:none" title="Toggle markdown preview">Preview</button>
 
         <!-- Action buttons -->
         <button class="btn btn-danger btn-sm" id="delete-btn" style="display:none">
@@ -289,10 +382,13 @@
           <textarea
             id="entry-editor"
             class="editor-textarea"
-            placeholder="Begin writing… let the words come."
+            placeholder="Begin writing… let the words come. (Markdown supported: **bold**, *italic*, # heading, - list)"
             spellcheck="true"
             autocorrect="on"
           ></textarea>
+
+          <!-- Markdown preview (hidden by default) -->
+          <div id="entry-preview" class="editor-textarea" style="display:none;"></div>
 
         </div>
 
@@ -308,6 +404,18 @@
           <button class="mood-btn" data-mood="anxious">◈ Anxious</button>
           <button class="mood-btn" data-mood="sad">◇ Sad</button>
           <button class="mood-btn" data-mood="grateful">✦ Grateful</button>
+        </div>
+        <div class="mood-label" style="margin-top:0.75rem;">Category &amp; Tags</div>
+        <div class="mood-row">
+          <select id="category-select" class="filter-select">
+            <option value="">No category</option>
+            <option value="personal">Personal</option>
+            <option value="work">Work</option>
+            <option value="travel">Travel</option>
+            <option value="health">Health</option>
+            <option value="gratitude">Gratitude</option>
+          </select>
+          <input type="text" id="tags-input" class="filter-select" placeholder="tags, comma, separated" style="flex:1;" />
         </div>
       </div>
 

@@ -35,10 +35,18 @@ CREATE TABLE IF NOT EXISTS entries (
     content     TEXT NOT NULL,
     mood        TEXT,                             -- optional e.g. 'happy', 'sad'
     tags        TEXT[],                           -- optional array of tag strings
+    category    TEXT,                             -- optional e.g. 'work', 'personal'
+    is_favorite BOOLEAN NOT NULL DEFAULT FALSE,
+    is_pinned   BOOLEAN NOT NULL DEFAULT FALSE,
     created_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted_at  TIMESTAMP WITH TIME ZONE          -- soft-delete: NULL = active
 );
+
+-- Add columns if table already exists (Supabase migration-safe)
+ALTER TABLE entries ADD COLUMN IF NOT EXISTS category TEXT;
+ALTER TABLE entries ADD COLUMN IF NOT EXISTS is_favorite BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE entries ADD COLUMN IF NOT EXISTS is_pinned BOOLEAN NOT NULL DEFAULT FALSE;
 
 -- Index for fast per-user entry lookups
 CREATE INDEX IF NOT EXISTS idx_entries_user_id ON entries (user_id);
@@ -71,8 +79,6 @@ CREATE TRIGGER set_entries_updated_at
 -- VIEW: active_entries — excludes soft-deleted entries
 -- ============================================================
 CREATE OR REPLACE VIEW active_entries AS
-    SELECT id, user_id, title, content, mood, tags, created_at, updated_at
+    SELECT id, user_id, title, content, mood, tags, category, is_favorite, is_pinned, created_at, updated_at
     FROM entries
     WHERE deleted_at IS NULL;
-
-
