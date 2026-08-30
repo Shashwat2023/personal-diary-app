@@ -75,3 +75,4 @@ temp/
 *.zip
 *.tar
 *.gz
+.vercel
