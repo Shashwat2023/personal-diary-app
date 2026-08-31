@@ -25,21 +25,57 @@ const mailer = process.env.SMTP_HOST
     })
   : null;
 
+if (mailer) {
+  mailer.verify()
+    .then(() => console.log(`[mailer] SMTP transporter verified OK (host=${process.env.SMTP_HOST}, user=${process.env.SMTP_USER})`))
+    .catch((err) => console.error(`[mailer] SMTP transporter verify FAILED (host=${process.env.SMTP_HOST}, user=${process.env.SMTP_USER}):`, err.message));
+} else {
+  console.error('[mailer] SMTP_HOST not set at cold start — mailer is null, verification emails cannot be sent');
+}
+
 const hashToken = (token) => crypto.createHash('sha256').update(token).digest('hex');
 
 async function sendVerificationEmail(email, username, rawToken) {
   const link = `${APP_URL}/api/auth/verify?token=${rawToken}`;
+
   if (!mailer) {
-    // No SMTP configured — log the link so registration still works in dev.
+    if (process.env.NODE_ENV === 'production') {
+      // Never silently succeed in production — the caller must know mail didn't go out.
+      throw new Error('SMTP is not configured (mailer is null) — cannot send verification email');
+    }
+    // Dev-only convenience: no SMTP configured, log the link instead of sending.
     console.warn(`[mailer] SMTP not configured. Verification link for ${email}: ${link}`);
     return;
   }
-  await mailer.sendMail({
-    from: process.env.SMTP_FROM || process.env.SMTP_USER,
-    to: email,
-    subject: 'Verify your Personal Diary account',
-    html: `<p>Hi ${username},</p><p>Confirm this is your email address to activate your account:</p><p><a href="${link}">${link}</a></p><p>This link expires in 24 hours. If you didn't request this, ignore this email.</p>`
+
+  let info;
+  try {
+    info = await mailer.sendMail({
+      from: process.env.SMTP_FROM || process.env.SMTP_USER,
+      to: email,
+      subject: 'Verify your Personal Diary account',
+      html: `<p>Hi ${username},</p><p>Confirm this is your email address to activate your account:</p><p><a href="${link}">${link}</a></p><p>This link expires in 24 hours. If you didn't request this, ignore this email.</p>`
+    });
+  } catch (err) {
+    // sendMail() itself threw (auth failure, connection refused, hard bounce, etc.)
+    console.error(`[mailer] sendMail threw for recipient=${email}:`, err.message);
+    throw err;
+  }
+
+  // Log delivery outcome (recipient + Nodemailer result). NEVER log SMTP_PASS/auth.
+  console.log('[mailer] sendMail result', {
+    recipient: email,
+    messageId: info.messageId,
+    accepted: info.accepted,
+    rejected: info.rejected,
+    response: info.response
   });
+
+  // sendMail() can resolve WITHOUT throwing even when the recipient was rejected
+  // (e.g. soft-accept-then-drop). Treat that as a failure too.
+  if (!info.accepted || !info.accepted.includes(email) || (info.rejected && info.rejected.length > 0)) {
+    throw new Error(`SMTP server did not accept recipient ${email} (rejected: ${JSON.stringify(info.rejected)})`);
+  }
 }
 
 const pool = new Pool({
