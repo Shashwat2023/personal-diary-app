@@ -4,60 +4,6 @@
    ============================================= */
 
 const UI = (() => {
-  // ─── Custom Cursor ───────────────────────────
-  function initCursor() {
-    const dot  = document.createElement('div');
-    const ring = document.createElement('div');
-    dot.className  = 'cursor-dot';
-    ring.className = 'cursor-ring';
-    document.body.appendChild(dot);
-    document.body.appendChild(ring);
-
-    let mouseX = 0, mouseY = 0;
-    let ringX  = 0, ringY  = 0;
-
-    document.addEventListener('mousemove', e => {
-      mouseX = e.clientX;
-      mouseY = e.clientY;
-      dot.style.left = mouseX + 'px';
-      dot.style.top  = mouseY + 'px';
-    });
-
-    function animateRing() {
-      ringX += (mouseX - ringX) * 0.12;
-      ringY += (mouseY - ringY) * 0.12;
-      ring.style.left = ringX + 'px';
-      ring.style.top  = ringY + 'px';
-      requestAnimationFrame(animateRing);
-    }
-    animateRing();
-
-    const interactive = 'a, button, input, textarea, [role="button"], .entry-item, .mood-btn, .new-entry-btn, .logout-btn, .theme-toggle';
-
-    document.addEventListener('mouseover', e => {
-      if (e.target.closest(interactive)) {
-        ring.classList.add('hovering');
-        dot.style.opacity = '0.5';
-      }
-    });
-
-    document.addEventListener('mouseout', e => {
-      if (e.target.closest(interactive)) {
-        ring.classList.remove('hovering');
-        dot.style.opacity = '1';
-      }
-    });
-
-    document.addEventListener('mouseleave', () => {
-      dot.style.opacity  = '0';
-      ring.style.opacity = '0';
-    });
-
-    document.addEventListener('mouseenter', () => {
-      dot.style.opacity  = '1';
-      ring.style.opacity = '1';
-    });
-  }
 
   // ─── Ripple Effect ──────────────────────────
   function addRipple(e) {
@@ -86,7 +32,7 @@ const UI = (() => {
 
   // ─── Dark Mode Toggle ────────────────────────
   function initTheme() {
-    const saved = localStorage.getItem('diary_theme') || 'light';
+    const saved = localStorage.getItem('diary_theme') || 'dark';
     applyTheme(saved);
   }
 
@@ -275,7 +221,6 @@ const UI = (() => {
 
   // ─── Public ─────────────────────────────────
   return {
-    initCursor,
     initRipples,
     initRipplesFor,
     initTheme,

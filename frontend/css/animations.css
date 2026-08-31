@@ -161,21 +161,11 @@
 }
 
 .new-entry-btn {
-  animation: border-pulse 3.5s ease-in-out infinite;
+  animation: border-pulse 3.5s ease-in-out 2;
 }
 
 .new-entry-btn:hover {
   animation: none;
-}
-
-/* ─── Glow pulse on cursor dot ──────────────── */
-@keyframes glow-pulse {
-  0%, 100% { box-shadow: 0 0 5px rgba(143, 166, 133, 0.5); }
-  50%       { box-shadow: 0 0 12px rgba(143, 166, 133, 0.85); }
-}
-
-.cursor-dot {
-  animation: glow-pulse 2.2s ease-in-out infinite;
 }
 
 /* ─── Sidebar section enter stagger ─────────── */
@@ -226,4 +216,14 @@ html {
 /* ─── Sticky header shadow ───────────────────── */
 .editor-header {
   transition: box-shadow 280ms ease, background 300ms ease;
+}
+
+/* ─── Reduced motion & low-power devices ─────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }

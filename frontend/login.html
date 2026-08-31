@@ -26,6 +26,8 @@
       height: 100vh;
       background: linear-gradient(180deg, transparent 0%, rgba(196,147,63,0.08) 40%, transparent 100%);
     }
+    .auth-logo { justify-content: space-between; }
+    .auth-theme-toggle { margin-left: auto; }
   </style>
 </head>
 <body class="page-enter">
@@ -39,6 +41,7 @@
       <div class="auth-logo">
         <div class="auth-logo-icon">✦</div>
         <span class="auth-logo-text">Folio</span>
+        <button class="theme-toggle auth-theme-toggle" id="theme-toggle" title="Switch to light mode">◑</button>
       </div>
 
       <h1 class="auth-title">Welcome back.</h1>
@@ -95,11 +98,16 @@
   <script src="js/api.js"></script>
   <script src="js/auth.js"></script>
   <script>
+    // Apply saved theme (defaults to dark) before anything else renders
+    UI.initTheme();
+
     // Init cursor
-    UI.initCursor();
 
     // Redirect if already logged in
     Auth.redirectIfAuth();
+
+    // Theme toggle
+    document.getElementById('theme-toggle')?.addEventListener('click', () => UI.toggleTheme());
 
     // Ripple on submit
     const submitBtn = document.getElementById('submit-btn');

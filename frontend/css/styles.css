@@ -105,6 +105,11 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button, a, input, textarea, select, .entry-item, .mood-btn {
+  touch-action: manipulation;
 }
 
 html {
@@ -122,51 +127,20 @@ body {
   line-height: 1.7;
   min-height: 100vh;
   overflow-x: hidden;
-  cursor: none;
   transition: background var(--transition-smooth), color var(--transition-smooth);
 }
 
-/* Paper texture grain overlay */
+/* Paper texture — cheap flat gradient, no filter/repaint cost */
 body::before {
   content: '';
   position: fixed;
   inset: 0;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.025'/%3E%3C/svg%3E");
+  background-image:
+    radial-gradient(rgba(0,0,0,0.02) 1px, transparent 1px);
+  background-size: 3px 3px;
   pointer-events: none;
   z-index: 9990;
   opacity: 0.6;
-}
-
-/* ─── Custom Cursor ─────────────────────────── */
-.cursor-dot {
-  position: fixed;
-  width: 7px;
-  height: 7px;
-  background: var(--accent-warm);
-  border-radius: 50%;
-  pointer-events: none;
-  z-index: 9999;
-  transform: translate(-50%, -50%);
-  transition: transform 80ms ease, opacity 200ms ease;
-}
-
-.cursor-ring {
-  position: fixed;
-  width: 28px;
-  height: 28px;
-  border: 1.5px solid rgba(143,166,133,0.5);
-  border-radius: 50%;
-  pointer-events: none;
-  z-index: 9998;
-  transform: translate(-50%, -50%);
-  transition: width 200ms ease, height 200ms ease, opacity 200ms ease, border-color 200ms ease;
-}
-
-.cursor-ring.hovering {
-  width: 44px;
-  height: 44px;
-  border-color: rgba(143,166,133,0.8);
-  background: rgba(143,166,133,0.05);
 }
 
 /* ─── Scrollbar ─────────────────────────────── */
@@ -294,7 +268,6 @@ a:hover { opacity: 0.72; }
   letter-spacing: 0.02em;
   outline: none;
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
-  cursor: none;
 }
 
 .form-group input::placeholder {
@@ -387,7 +360,6 @@ a:hover { opacity: 0.72; }
   font-weight: 500;
   letter-spacing: 0.07em;
   text-transform: uppercase;
-  cursor: none;
   overflow: hidden;
   transition:
     transform var(--transition-fast),
@@ -489,7 +461,6 @@ a:hover { opacity: 0.72; }
   display: grid;
   place-items: center;
   font-size: 0.85rem;
-  cursor: none;
   transition: background var(--transition-fast), color var(--transition-fast), transform var(--transition-fast), border-color var(--transition-fast);
   flex-shrink: 0;
 }
@@ -604,7 +575,6 @@ a:hover { opacity: 0.72; }
   letter-spacing: 0.02em;
   outline: none;
   transition: border-color var(--transition-fast), color var(--transition-fast), box-shadow var(--transition-fast);
-  cursor: none;
 }
 
 .search-bar input:focus {
@@ -643,7 +613,6 @@ a:hover { opacity: 0.72; }
   font-size: 0.68rem;
   letter-spacing: 0.07em;
   text-transform: uppercase;
-  cursor: none;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -681,7 +650,6 @@ a:hover { opacity: 0.72; }
 
 .entry-item {
   padding: 0.625rem 1rem;
-  cursor: none;
   position: relative;
   transition: background var(--transition-fast), border-left-color var(--transition-fast), transform 150ms ease;
   border-left: 2.5px solid transparent;
@@ -832,7 +800,6 @@ a:hover { opacity: 0.72; }
   font-size: 0.72rem;
   font-family: var(--font-mono);
   letter-spacing: 0.04em;
-  cursor: none;
   padding: 0.3rem 0.6rem;
   border-radius: var(--radius-sm);
   transition: background var(--transition-fast), color var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
@@ -977,7 +944,6 @@ a:hover { opacity: 0.72; }
   font-size: 1.1rem;
   line-height: 1.9;
   resize: none;
-  cursor: none;
   caret-color: var(--accent-warm);
   letter-spacing: 0.01em;
 }
@@ -1059,8 +1025,7 @@ a:hover { opacity: 0.72; }
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(44,44,44,0.35);
-  backdrop-filter: blur(6px);
+  background: rgba(44,44,44,0.5);
   z-index: 1000;
   display: flex;
   align-items: center;
@@ -1127,7 +1092,6 @@ a:hover { opacity: 0.72; }
   font-family: var(--font-mono);
   font-size: 0.62rem;
   color: var(--ink-muted);
-  cursor: none;
   letter-spacing: 0.04em;
   transition: all var(--transition-fast);
   display: flex;
@@ -1192,7 +1156,6 @@ a:hover { opacity: 0.72; }
   background: none;
   border: none;
   color: var(--ink-secondary);
-  cursor: none;
   padding: 0.4rem;
   border-radius: var(--radius-sm);
   font-size: 0.875rem;
