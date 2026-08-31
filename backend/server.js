@@ -6,7 +6,7 @@ const morgan = require('morgan');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 const { Pool } = require('pg');
 const path = require('path');
 
@@ -16,65 +16,54 @@ const PORT = process.env.PORT || 5000;
 const APP_URL = process.env.APP_URL || `http://localhost:${PORT}`;
 
 // ─── Mailer (used to verify entered emails are real, deliverable addresses) ───
-const mailer = process.env.SMTP_HOST
-  ? nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: Number(process.env.SMTP_PORT) || 587,
-      secure: Number(process.env.SMTP_PORT) === 465,
-      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
-    })
-  : null;
-
-if (mailer) {
-  mailer.verify()
-    .then(() => console.log(`[mailer] SMTP transporter verified OK (host=${process.env.SMTP_HOST}, user=${process.env.SMTP_USER})`))
-    .catch((err) => console.error(`[mailer] SMTP transporter verify FAILED (host=${process.env.SMTP_HOST}, user=${process.env.SMTP_USER}):`, err.message));
-} else {
-  console.error('[mailer] SMTP_HOST not set at cold start — mailer is null, verification emails cannot be sent');
+// Uses Resend (https://resend.com) instead of SMTP/Nodemailer — works reliably
+// from Vercel serverless functions, which frequently block/throttle raw SMTP.
+if (!process.env.RESEND_API_KEY) {
+  console.error('[mailer] RESEND_API_KEY not set at cold start — verification emails cannot be sent');
 }
+if (!process.env.RESEND_FROM) {
+  console.error('[mailer] RESEND_FROM not set at cold start — verification emails cannot be sent');
+}
+
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 const hashToken = (token) => crypto.createHash('sha256').update(token).digest('hex');
 
 async function sendVerificationEmail(email, username, rawToken) {
   const link = `${APP_URL}/api/auth/verify?token=${rawToken}`;
 
-  if (!mailer) {
-    if (process.env.NODE_ENV === 'production') {
-      // Never silently succeed in production — the caller must know mail didn't go out.
-      throw new Error('SMTP is not configured (mailer is null) — cannot send verification email');
-    }
-    // Dev-only convenience: no SMTP configured, log the link instead of sending.
-    console.warn(`[mailer] SMTP not configured. Verification link for ${email}: ${link}`);
-    return;
+  if (!resend || !process.env.RESEND_FROM) {
+    // Never silently succeed — the caller must know mail didn't go out.
+    throw new Error('Resend is not configured (missing RESEND_API_KEY or RESEND_FROM) — cannot send verification email');
   }
 
-  let info;
+  let result;
   try {
-    info = await mailer.sendMail({
-      from: process.env.SMTP_FROM || process.env.SMTP_USER,
+    result = await resend.emails.send({
+      from: process.env.RESEND_FROM,
       to: email,
       subject: 'Verify your Personal Diary account',
       html: `<p>Hi ${username},</p><p>Confirm this is your email address to activate your account:</p><p><a href="${link}">${link}</a></p><p>This link expires in 24 hours. If you didn't request this, ignore this email.</p>`
     });
   } catch (err) {
-    // sendMail() itself threw (auth failure, connection refused, hard bounce, etc.)
-    console.error(`[mailer] sendMail threw for recipient=${email}:`, err.message);
+    // The SDK call itself threw (network error, invalid API key, etc.)
+    console.error(`[mailer] resend.emails.send threw for recipient=${email}:`, err.message);
     throw err;
   }
 
-  // Log delivery outcome (recipient + Nodemailer result). NEVER log SMTP_PASS/auth.
-  console.log('[mailer] sendMail result', {
+  // The Resend SDK returns { data, error } rather than throwing on API-level failures
+  // (invalid recipient, unverified domain, rate limit, etc.) — check both.
+  console.log('[mailer] resend.emails.send result', {
     recipient: email,
-    messageId: info.messageId,
-    accepted: info.accepted,
-    rejected: info.rejected,
-    response: info.response
+    id: result.data ? result.data.id : null,
+    error: result.error ? { name: result.error.name, message: result.error.message } : null
   });
 
-  // sendMail() can resolve WITHOUT throwing even when the recipient was rejected
-  // (e.g. soft-accept-then-drop). Treat that as a failure too.
-  if (!info.accepted || !info.accepted.includes(email) || (info.rejected && info.rejected.length > 0)) {
-    throw new Error(`SMTP server did not accept recipient ${email} (rejected: ${JSON.stringify(info.rejected)})`);
+  if (result.error) {
+    throw new Error(`Resend failed to send to ${email}: ${result.error.name} - ${result.error.message}`);
+  }
+  if (!result.data || !result.data.id) {
+    throw new Error(`Resend returned no message id for ${email} — treating as failure`);
   }
 }
 
