@@ -155,10 +155,9 @@ const Auth = (() => {
     submitBtn.textContent = '';
 
     try {
-      const data = await API.register({ username, email, password });
-      saveSession(data.token, data.user || { email, username });
-      UI.showToast('Account created! Welcome.', 'success');
-      setTimeout(() => navigateTo('dashboard.html'), 700);
+      await API.register({ username, email, password });
+      UI.showToast('Check your email to verify your account.', 'success', 5000);
+      setTimeout(() => navigateTo('login.html'), 1200);
     } catch (err) {
       submitBtn.classList.remove('loading');
       submitBtn.textContent = 'Create Account';

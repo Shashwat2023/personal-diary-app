@@ -25,6 +25,12 @@ CREATE TABLE IF NOT EXISTS users (
 -- Index for fast email lookups during login
 CREATE INDEX IF NOT EXISTS idx_users_email ON users (email);
 
+-- Email verification (proves the entered address is real/reachable)
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_verified BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_token TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_expires TIMESTAMP WITH TIME ZONE;
+CREATE INDEX IF NOT EXISTS idx_users_verification_token ON users (verification_token);
+
 -- ============================================================
 -- ENTRIES TABLE
 -- ============================================================

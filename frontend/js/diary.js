@@ -69,14 +69,14 @@ const Diary = (() => {
   // ─── Initialize ─────────────────────────────
   async function init() {
     bindDOM();
-    UI.initCursor();
     UI.initRipples();
 
     // Populate user info
     const user = Auth.getUser();
     if (user) {
-      if (DOM.userNameEl) DOM.userNameEl.textContent = user.username || user.email;
-      if (DOM.userAvatarEl) DOM.userAvatarEl.textContent = (user.username || user.email || '?')[0].toUpperCase();
+      const displayName = user.username || user.email;
+      if (DOM.userNameEl) DOM.userNameEl.textContent = displayName;
+      if (DOM.userAvatarEl) DOM.userAvatarEl.textContent = UI.getInitials(displayName);
     }
 
     // Sticky header

@@ -199,6 +199,14 @@ const UI = (() => {
     });
   }
 
+  // ─── Initials (avatar) ────────────────────────
+  function getInitials(name) {
+    if (!name) return '?';
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 1) return parts[0][0].toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+
   // ─── Word count ──────────────────────────────
   function wordCount(text) {
     return text.trim() ? text.trim().split(/\s+/).length : 0;
@@ -235,6 +243,7 @@ const UI = (() => {
     getMonthYear,
     getPreview,
     getMoodPill,
+    getInitials,
     initStickyHeader,
     wordCount,
     staggerItems,

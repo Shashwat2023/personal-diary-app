@@ -106,6 +106,12 @@
     // Redirect if already logged in
     Auth.redirectIfAuth();
 
+    // Show result of email-verification link, if present
+    const verifyStatus = new URLSearchParams(window.location.search).get('verify');
+    if (verifyStatus === 'success') UI.showToast('Email verified — you can log in now.', 'success');
+    if (verifyStatus === 'invalid') UI.showToast('Verification link is invalid or expired.', 'error');
+    if (verifyStatus === 'error')   UI.showToast('Something went wrong verifying your email.', 'error');
+
     // Theme toggle
     document.getElementById('theme-toggle')?.addEventListener('click', () => UI.toggleTheme());
 

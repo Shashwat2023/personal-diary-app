@@ -5,12 +5,42 @@ const cors = require('cors');
 const morgan = require('morgan');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
+const nodemailer = require('nodemailer');
 const { Pool } = require('pg');
 const path = require('path');
 
 const app = express();
 
 const PORT = process.env.PORT || 5000;
+const APP_URL = process.env.APP_URL || `http://localhost:${PORT}`;
+
+// ─── Mailer (used to verify entered emails are real, deliverable addresses) ───
+const mailer = process.env.SMTP_HOST
+  ? nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT) || 587,
+      secure: Number(process.env.SMTP_PORT) === 465,
+      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
+    })
+  : null;
+
+const hashToken = (token) => crypto.createHash('sha256').update(token).digest('hex');
+
+async function sendVerificationEmail(email, username, rawToken) {
+  const link = `${APP_URL}/api/auth/verify?token=${rawToken}`;
+  if (!mailer) {
+    // No SMTP configured — log the link so registration still works in dev.
+    console.warn(`[mailer] SMTP not configured. Verification link for ${email}: ${link}`);
+    return;
+  }
+  await mailer.sendMail({
+    from: process.env.SMTP_FROM || process.env.SMTP_USER,
+    to: email,
+    subject: 'Verify your Personal Diary account',
+    html: `<p>Hi ${username},</p><p>Confirm this is your email address to activate your account:</p><p><a href="${link}">${link}</a></p><p>This link expires in 24 hours. If you didn't request this, ignore this email.</p>`
+  });
+}
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -117,16 +147,31 @@ app.post('/api/auth/register', async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 12);
 
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
+
     const result = await pool.query(
-      `INSERT INTO users (username, email, password)
-       VALUES ($1, $2, $3)
+      `INSERT INTO users (username, email, password, is_verified, verification_token, verification_expires)
+       VALUES ($1, $2, $3, FALSE, $4, $5)
        RETURNING id, username, email, created_at`,
-      [username, email, hashedPassword]
+      [username, email, hashedPassword, hashToken(rawToken), verificationExpires]
     );
+
+    try {
+      await sendVerificationEmail(email, username, rawToken);
+    } catch (mailErr) {
+      console.error('Verification email failed to send:', mailErr.message);
+      // Roll back so the user can retry registration cleanly.
+      await pool.query('DELETE FROM users WHERE id = $1', [result.rows[0].id]);
+      return res.status(502).json({
+        success: false,
+        message: 'Could not send verification email. Check the address and try again.'
+      });
+    }
 
     res.status(201).json({
       success: true,
-      message: 'Registration successful',
+      message: 'Account created. Check your email to verify your address before logging in.',
       user: result.rows[0]
     });
   } catch (err) {
@@ -137,6 +182,64 @@ app.post('/api/auth/register', async (req, res) => {
       message: err.message,
       code: err.code
     });
+  }
+});
+
+// GET /api/auth/verify?token=...
+app.get('/api/auth/verify', async (req, res) => {
+  const { token } = req.query;
+  if (!token) return res.redirect(`${APP_URL}/login.html?verify=missing`);
+
+  try {
+    const result = await pool.query(
+      `UPDATE users
+       SET is_verified = TRUE, verification_token = NULL, verification_expires = NULL
+       WHERE verification_token = $1 AND verification_expires > NOW()
+       RETURNING id`,
+      [hashToken(token)]
+    );
+
+    if (result.rows.length === 0) {
+      return res.redirect(`${APP_URL}/login.html?verify=invalid`);
+    }
+    return res.redirect(`${APP_URL}/login.html?verify=success`);
+  } catch (err) {
+    console.error('Verify error:', err.message);
+    return res.redirect(`${APP_URL}/login.html?verify=error`);
+  }
+});
+
+// POST /api/auth/resend-verification
+app.post('/api/auth/resend-verification', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ success: false, message: 'Email is required' });
+
+    const result = await pool.query(
+      'SELECT id, username, email, is_verified FROM users WHERE email = $1',
+      [email]
+    );
+
+    // Same response whether or not the account exists — avoids leaking which emails are registered.
+    const generic = { success: true, message: 'If that account needs verifying, a new email is on its way.' };
+    if (result.rows.length === 0) return res.json(generic);
+
+    const user = result.rows[0];
+    if (user.is_verified) return res.json(generic);
+
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    await pool.query(
+      'UPDATE users SET verification_token = $1, verification_expires = $2 WHERE id = $3',
+      [hashToken(rawToken), verificationExpires, user.id]
+    );
+
+    await sendVerificationEmail(user.email, user.username, rawToken);
+    res.json(generic);
+  } catch (err) {
+    console.error('Resend verification error:', err.message);
+    res.status(500).json({ success: false, message: 'Could not resend verification email.' });
   }
 });
 
@@ -174,6 +277,13 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(401).json({
         success: false,
         message: 'Invalid email or password'
+      });
+    }
+
+    if (!user.is_verified) {
+      return res.status(403).json({
+        success: false,
+        message: 'Please verify your email before logging in. Check your inbox for the verification link.'
       });
     }
 

@@ -317,9 +317,9 @@
       <button class="theme-toggle" id="theme-toggle" title="Switch to dark mode">◑</button>
 
       <!-- Profile -->
-      <a class="theme-toggle" href="profile.html" title="Profile & settings" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center;">
+      <button class="theme-toggle" id="profile-btn" title="Profile & settings">
         <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.5-7 8-7s8 3 8 7"/></svg>
-      </a>
+      </button>
 
       <!-- Logout -->
       <button class="logout-btn" id="logout-btn" title="Sign out">
@@ -496,6 +496,10 @@
     // ── Footer save/delete proxies ────────────
     document.getElementById('save-btn-footer')?.addEventListener('click', () => {
       document.getElementById('save-btn').click();
+    });
+
+    document.getElementById('profile-btn')?.addEventListener('click', () => {
+      UI.showToast('Profile & settings coming soon.', 'info');
     });
 
     document.getElementById('delete-btn-footer')?.addEventListener('click', () => {
