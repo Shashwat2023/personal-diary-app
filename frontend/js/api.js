@@ -7,15 +7,14 @@ const API = (() => {
   const BASE_URL = '/api';
 
   // ─── Helpers ──────────────────────────────
-  // FIX: auth.js saves the token under 'diary_token'.
-  //      diary.js was reading it as 'token' (wrong key) — all API calls
-  //      were sending no Authorization header, causing 401 errors.
-  function getToken() {
-    return localStorage.getItem('diary_token');
+  // Token now comes from the active Supabase session (Google sign-in).
+  async function getToken() {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    return session?.access_token || null;
   }
 
-  function authHeaders() {
-    const token = getToken();
+  async function authHeaders() {
+    const token = await getToken();
     return {
       'Content-Type': 'application/json',
       ...(token ? { 'Authorization': `Bearer ${token}` } : {})
@@ -25,7 +24,7 @@ const API = (() => {
   async function request(method, path, body = null) {
     const options = {
       method,
-      headers: authHeaders()
+      headers: await authHeaders()
     };
     if (body) options.body = JSON.stringify(body);
 
@@ -38,9 +37,8 @@ const API = (() => {
       console.log(`[API] ${method} ${path} →`, response.status, data);
 
       if (!response.ok) {
-        if ((response.status === 401 || response.status === 403) && getToken()) {
-          localStorage.removeItem('diary_token');
-          localStorage.removeItem('diary_user');
+        if (response.status === 401 || response.status === 403) {
+          await supabaseClient.auth.signOut();
           window.location.href = 'login.html';
         }
         throw new Error(data.message || data.error || `HTTP ${response.status}`);
@@ -50,15 +48,6 @@ const API = (() => {
       console.error(`[API] ${method} ${path} failed:`, err.message);
       throw new Error(err.message || 'Network error. Please try again.');
     }
-  }
-
-  // ─── Auth ──────────────────────────────────
-  async function register({ username, email, password }) {
-    return request('POST', '/auth/register', { username, email, password });
-  }
-
-  async function login({ email, password }) {
-    return request('POST', '/auth/login', { email, password });
   }
 
   // ─── Entries ───────────────────────────────
@@ -96,8 +85,6 @@ const API = (() => {
 
   // ─── Public API ────────────────────────────
   return {
-    register,
-    login,
     getEntries,
     createEntry,
     updateEntry,
@@ -107,6 +94,6 @@ const API = (() => {
     permanentDeleteEntry,
     getStats,
     getToken,
-    isAuthenticated: () => !!getToken()
+    isAuthenticated: async () => !!(await getToken())
   };
 })();

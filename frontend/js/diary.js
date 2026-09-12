@@ -72,7 +72,7 @@ const Diary = (() => {
     UI.initRipples();
 
     // Populate user info
-    const user = Auth.getUser();
+    const user = await Auth.getUser();
     if (user) {
       const displayName = user.username || user.email;
       if (DOM.userNameEl) DOM.userNameEl.textContent = displayName;

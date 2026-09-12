@@ -316,11 +316,6 @@
       <!-- Dark mode toggle -->
       <button class="theme-toggle" id="theme-toggle" title="Switch to dark mode">◑</button>
 
-      <!-- Profile -->
-      <button class="theme-toggle" id="profile-btn" title="Profile & settings">
-        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.5-7 8-7s8 3 8 7"/></svg>
-      </button>
-
       <!-- Logout -->
       <button class="logout-btn" id="logout-btn" title="Sign out">
         <span>⇥</span>
@@ -464,6 +459,8 @@
 </div>
 
 <!-- Scripts (order matters) -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabaseClient.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/api.js"></script>
 <script src="js/auth.js"></script>
@@ -472,8 +469,9 @@
   // Apply saved theme immediately (before any render)
   UI.initTheme();
 
-  // Auth guard
-  if (!Auth.requireAuth()) {
+  // Auth guard (async — Supabase session check)
+  (async () => {
+  if (!(await Auth.requireAuth())) {
     // redirected to login.html
   } else {
     // Init diary
@@ -488,18 +486,12 @@
     // Handled by Auth.logout() wired in diary.js,
     // but also wire the button directly as a safety net.
     document.getElementById('logout-btn')?.addEventListener('click', () => {
-      localStorage.removeItem('diary_token');
-      localStorage.removeItem('diary_user');
-      UI.navigateWithTransition('login.html');
+      Auth.logout();
     });
 
     // ── Footer save/delete proxies ────────────
     document.getElementById('save-btn-footer')?.addEventListener('click', () => {
       document.getElementById('save-btn').click();
-    });
-
-    document.getElementById('profile-btn')?.addEventListener('click', () => {
-      UI.showToast('Profile & settings coming soon.', 'info');
     });
 
     document.getElementById('delete-btn-footer')?.addEventListener('click', () => {
@@ -557,6 +549,7 @@
       syncHeaderDate.observe(editorDate, { childList: true, characterData: true, subtree: true });
     }
   }
+  })();
 </script>
 
 </body>
