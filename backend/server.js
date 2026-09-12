@@ -3,10 +3,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
-const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
-const crypto = require('crypto');
-const { Resend } = require('resend');
+const { jwtVerify, createRemoteJWKSet } = require('jose');
 const { Pool } = require('pg');
 const path = require('path');
 
@@ -15,57 +12,8 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const APP_URL = process.env.APP_URL || `http://localhost:${PORT}`;
 
-// ─── Mailer (used to verify entered emails are real, deliverable addresses) ───
-// Uses Resend (https://resend.com) instead of SMTP/Nodemailer — works reliably
-// from Vercel serverless functions, which frequently block/throttle raw SMTP.
-if (!process.env.RESEND_API_KEY) {
-  console.error('[mailer] RESEND_API_KEY not set at cold start — verification emails cannot be sent');
-}
-if (!process.env.RESEND_FROM) {
-  console.error('[mailer] RESEND_FROM not set at cold start — verification emails cannot be sent');
-}
-
-const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
-
-const hashToken = (token) => crypto.createHash('sha256').update(token).digest('hex');
-
-async function sendVerificationEmail(email, username, rawToken) {
-  const link = `${APP_URL}/api/auth/verify?token=${rawToken}`;
-
-  if (!resend || !process.env.RESEND_FROM) {
-    // Never silently succeed — the caller must know mail didn't go out.
-    throw new Error('Resend is not configured (missing RESEND_API_KEY or RESEND_FROM) — cannot send verification email');
-  }
-
-  let result;
-  try {
-    result = await resend.emails.send({
-      from: process.env.RESEND_FROM,
-      to: email,
-      subject: 'Verify your Personal Diary account',
-      html: `<p>Hi ${username},</p><p>Confirm this is your email address to activate your account:</p><p><a href="${link}">${link}</a></p><p>This link expires in 24 hours. If you didn't request this, ignore this email.</p>`
-    });
-  } catch (err) {
-    // The SDK call itself threw (network error, invalid API key, etc.)
-    console.error(`[mailer] resend.emails.send threw for recipient=${email}:`, err.message);
-    throw err;
-  }
-
-  // The Resend SDK returns { data, error } rather than throwing on API-level failures
-  // (invalid recipient, unverified domain, rate limit, etc.) — check both.
-  console.log('[mailer] resend.emails.send result', {
-    recipient: email,
-    id: result.data ? result.data.id : null,
-    error: result.error ? { name: result.error.name, message: result.error.message } : null
-  });
-
-  if (result.error) {
-    throw new Error(`Resend failed to send to ${email}: ${result.error.name} - ${result.error.message}`);
-  }
-  if (!result.data || !result.data.id) {
-    throw new Error(`Resend returned no message id for ${email} — treating as failure`);
-  }
-}
+// Account creation, Google sign-in, and email verification are all handled
+// by Supabase Auth on the frontend — no custom mailer needed here anymore.
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -119,7 +67,13 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
-const authenticateToken = (req, res, next) => {
+// Verifies the Supabase-issued JWT (Google sign-in). Supabase now signs
+// tokens with ES256 using rotating keys, published at this JWKS endpoint —
+// no static secret needed/possible.
+const SUPABASE_URL = 'https://ctggukqyxdcjqfwectpz.supabase.co';
+const JWKS = createRemoteJWKSet(new URL(`${SUPABASE_URL}/auth/v1/.well-known/jwks.json`));
+
+const authenticateToken = async (req, res, next) => {
   const authHeader = req.headers.authorization;
   const token = authHeader && authHeader.split(' ')[1];
 
@@ -130,219 +84,24 @@ const authenticateToken = (req, res, next) => {
     });
   }
 
-  jwt.verify(
-    token,
-    process.env.JWT_SECRET,
-    (err, user) => {
-      if (err) {
-        return res.status(403).json({
-          success: false,
-          message: 'Invalid token'
-        });
-      }
-
-      req.user = user;
-      next();
-    }
-  );
+  try {
+    const { payload } = await jwtVerify(token, JWKS, {
+      issuer: `${SUPABASE_URL}/auth/v1`,
+      audience: 'authenticated'
+    });
+    req.user = { id: payload.sub, email: payload.email };
+    next();
+  } catch (err) {
+    console.error('Token verify failed:', err.message);
+    return res.status(403).json({
+      success: false,
+      message: 'Invalid token'
+    });
+  }
 };
 
-app.post('/api/auth/register', async (req, res) => {
-  try {
-    const { username, email, password } = req.body;
-
-    if (!username || !email || !password) {
-      return res.status(400).json({
-        success: false,
-        message: 'Username, email and password are required'
-      });
-    }
-
-    const existingUser = await pool.query(
-      'SELECT id FROM users WHERE email = $1',
-      [email]
-    );
-
-    if (existingUser.rows.length > 0) {
-      return res.status(409).json({
-        success: false,
-        message: 'Email already registered'
-      });
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 12);
-
-    const rawToken = crypto.randomBytes(32).toString('hex');
-    const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
-
-    const result = await pool.query(
-      `INSERT INTO users (username, email, password, is_verified, verification_token, verification_expires)
-       VALUES ($1, $2, $3, FALSE, $4, $5)
-       RETURNING id, username, email, created_at`,
-      [username, email, hashedPassword, hashToken(rawToken), verificationExpires]
-    );
-
-    try {
-      await sendVerificationEmail(email, username, rawToken);
-    } catch (mailErr) {
-      console.error('Verification email failed to send:', mailErr.message);
-      // Roll back so the user can retry registration cleanly.
-      await pool.query('DELETE FROM users WHERE id = $1', [result.rows[0].id]);
-      return res.status(502).json({
-        success: false,
-        message: 'Could not send verification email. Check the address and try again.'
-      });
-    }
-
-    res.status(201).json({
-      success: true,
-      message: 'Account created. Check your email to verify your address before logging in.',
-      user: result.rows[0]
-    });
-  } catch (err) {
-    console.error('Register error:', err);
-
-    res.status(500).json({
-      success: false,
-      message: err.message,
-      code: err.code
-    });
-  }
-});
-
-// GET /api/auth/verify?token=...
-app.get('/api/auth/verify', async (req, res) => {
-  const { token } = req.query;
-  if (!token) return res.redirect(`${APP_URL}/login.html?verify=missing`);
-
-  try {
-    const result = await pool.query(
-      `UPDATE users
-       SET is_verified = TRUE, verification_token = NULL, verification_expires = NULL
-       WHERE verification_token = $1 AND verification_expires > NOW()
-       RETURNING id`,
-      [hashToken(token)]
-    );
-
-    if (result.rows.length === 0) {
-      return res.redirect(`${APP_URL}/login.html?verify=invalid`);
-    }
-    return res.redirect(`${APP_URL}/login.html?verify=success`);
-  } catch (err) {
-    console.error('Verify error:', err.message);
-    return res.redirect(`${APP_URL}/login.html?verify=error`);
-  }
-});
-
-// POST /api/auth/resend-verification
-app.post('/api/auth/resend-verification', async (req, res) => {
-  try {
-    const { email } = req.body;
-    if (!email) return res.status(400).json({ success: false, message: 'Email is required' });
-
-    const result = await pool.query(
-      'SELECT id, username, email, is_verified FROM users WHERE email = $1',
-      [email]
-    );
-
-    // Same response whether or not the account exists — avoids leaking which emails are registered.
-    const generic = { success: true, message: 'If that account needs verifying, a new email is on its way.' };
-    if (result.rows.length === 0) return res.json(generic);
-
-    const user = result.rows[0];
-    if (user.is_verified) return res.json(generic);
-
-    const rawToken = crypto.randomBytes(32).toString('hex');
-    const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
-
-    await pool.query(
-      'UPDATE users SET verification_token = $1, verification_expires = $2 WHERE id = $3',
-      [hashToken(rawToken), verificationExpires, user.id]
-    );
-
-    await sendVerificationEmail(user.email, user.username, rawToken);
-    res.json(generic);
-  } catch (err) {
-    console.error('Resend verification error:', err.message);
-    res.status(500).json({ success: false, message: 'Could not resend verification email.' });
-  }
-});
-
-app.post('/api/auth/login', async (req, res) => {
-  try {
-    const { email, password } = req.body;
-
-    if (!email || !password) {
-      return res.status(400).json({
-        success: false,
-        message: 'Email and password are required'
-      });
-    }
-
-    const result = await pool.query(
-      'SELECT * FROM users WHERE email = $1',
-      [email]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid email or password'
-      });
-    }
-
-    const user = result.rows[0];
-
-    const isMatch = await bcrypt.compare(
-      password,
-      user.password
-    );
-
-    if (!isMatch) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid email or password'
-      });
-    }
-
-    if (!user.is_verified) {
-      return res.status(403).json({
-        success: false,
-        message: 'Please verify your email before logging in. Check your inbox for the verification link.'
-      });
-    }
-
-    const token = jwt.sign(
-      {
-        id: user.id,
-        username: user.username,
-        email: user.email
-      },
-      process.env.JWT_SECRET,
-      {
-        expiresIn: process.env.JWT_EXPIRES_IN || '7d'
-      }
-    );
-
-    res.json({
-      success: true,
-      message: 'Login successful',
-      token,
-      user: {
-        id: user.id,
-        username: user.username,
-        email: user.email
-      }
-    });
-  } catch (err) {
-    console.error('Login error:', err.message);
-
-    res.status(500).json({
-      success: false,
-      message: err.message
-    });
-  }
-});
+// Account creation/login is handled entirely by Supabase Auth (Google
+// sign-in) on the frontend now — no custom register/login/verify endpoints.
 
 app.post('/api/entries', authenticateToken, async (req, res) => {
   try {
