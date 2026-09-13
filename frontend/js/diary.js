@@ -94,7 +94,7 @@ const Diary = (() => {
     if (DOM.filterTag)  DOM.filterTag.addEventListener('input', e => { state.filterTag = e.target.value.toLowerCase().trim(); renderSidebar(); });
     if (DOM.sortSelect) DOM.sortSelect.addEventListener('change', e => { state.sortBy = e.target.value; renderSidebar(); });
     if (DOM.trashBtn)   DOM.trashBtn.addEventListener('click', toggleTrashView);
-    if (DOM.exportBtn)  DOM.exportBtn.addEventListener('click', exportJSON);
+    if (DOM.exportBtn)  DOM.exportBtn.addEventListener('click', exportPDF);
     if (DOM.favoriteBtn) DOM.favoriteBtn.addEventListener('click', toggleFavorite);
     if (DOM.pinBtn)       DOM.pinBtn.addEventListener('click', togglePin);
     if (DOM.previewBtn)   DOM.previewBtn.addEventListener('click', togglePreview);
@@ -709,18 +709,151 @@ const Diary = (() => {
     }
   }
 
-  // ─── Export ───────────────────────────────────
-  function exportJSON() {
-    const blob = new Blob([JSON.stringify(state.entries, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `diary-export-${new Date().toISOString().slice(0, 10)}.json`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-    UI.showToast('Entries exported.', 'success');
+  // ─── Export (vintage PDF book) ─────────────────
+  function loadScriptOnce(src) {
+    return new Promise((resolve, reject) => {
+      if (document.querySelector(`script[src="${src}"]`)) return resolve();
+      const s = document.createElement('script');
+      s.src = src;
+      s.onload = () => resolve();
+      s.onerror = () => reject(new Error(`Failed to load ${src}`));
+      document.head.appendChild(s);
+    });
+  }
+
+  function buildBookHTML(entries, username) {
+    const wrap = document.createElement('div');
+    wrap.style.cssText = `
+      position: absolute; left: -99999px; top: 0;
+      width: 794px;
+      background: linear-gradient(180deg, #f8f0dd 0%, #f1e6cd 100%);
+      box-shadow: inset 0 0 90px rgba(90,64,32,0.28);
+      padding: 70px 76px 90px;
+      font-family: 'Crimson Pro', Georgia, serif;
+      color: #3b2a1a;
+    `;
+
+    const sorted = [...entries].sort(
+      (a, b) => new Date(a.created_at) - new Date(b.created_at)
+    );
+
+    const today = new Date().toLocaleDateString(undefined, {
+      year: 'numeric', month: 'long', day: 'numeric'
+    });
+
+    let html = `
+      <div style="text-align:center; padding-bottom:56px; margin-bottom:56px; border-bottom: 1px solid rgba(90,64,32,0.25);">
+        <div style="font-family:'Cormorant Garamond', Georgia, serif; font-style:italic; font-size:16px; letter-spacing:3px; color:#8a6a3f; margin-bottom:14px;">❦ ❦ ❦</div>
+        <h1 style="font-family:'Cormorant Garamond', Georgia, serif; font-weight:600; font-size:46px; margin:0 0 10px;">The Diary of ${escapeHtml(username || 'Folio')}</h1>
+        <div style="font-style:italic; font-size:15px; color:#7a6248;">A collection of thoughts &amp; reflections</div>
+        <div style="font-size:12px; letter-spacing:2px; text-transform:uppercase; color:#9a8362; margin-top:22px;">Compiled ${today}</div>
+      </div>
+    `;
+
+    sorted.forEach((entry, i) => {
+      const dateLine = `${UI.formatDate(entry.created_at)} · ${UI.formatTime(entry.created_at)}`;
+      const title = entry.title ? escapeHtml(entry.title) : 'Untitled';
+      const moodTag = entry.mood
+        ? `<span style="font-style:italic; color:#8a6a3f;">feeling ${escapeHtml(entry.mood)}</span>`
+        : '';
+      const tags = (entry.tags || []).length
+        ? `<span style="color:#9a8362;"> · ${entry.tags.map(t => escapeHtml(t)).join(', ')}</span>`
+        : '';
+      const bodyHtml = renderMarkdown(entry.content || '');
+
+      html += `
+        <div style="margin-bottom:52px; ${i > 0 ? 'padding-top:46px; border-top:1px solid rgba(90,64,32,0.18);' : ''}">
+          <div style="font-size:12px; letter-spacing:1.5px; text-transform:uppercase; color:#9a8362; margin-bottom:6px;">
+            ${dateLine}
+          </div>
+          <h2 style="font-family:'Cormorant Garamond', Georgia, serif; font-weight:600; font-size:30px; margin:0 0 6px; color:#2e2013;">
+            ${title}
+          </h2>
+          <div style="font-size:13px; margin-bottom:18px;">${moodTag}${tags}</div>
+          <div class="book-entry-body" style="font-size:16.5px; line-height:1.85; text-align:justify;">
+            ${bodyHtml}
+          </div>
+        </div>
+      `;
+    });
+
+    html += `
+      <div style="text-align:center; margin-top:40px; font-family:'Cormorant Garamond', Georgia, serif; font-style:italic; font-size:15px; color:#8a6a3f;">
+        ❦ End of volume ❦
+      </div>
+    `;
+
+    wrap.innerHTML = html;
+
+    // Drop cap on the first letter of every entry's opening paragraph
+    wrap.querySelectorAll('.book-entry-body').forEach(body => {
+      const firstP = body.querySelector('p') || body;
+      const text = firstP.innerHTML;
+      const match = text.match(/^([\s\S]{0,3}?)([A-Za-z])/);
+      if (match) {
+        const dropCap = `<span style="float:left; font-family:'Cormorant Garamond', Georgia, serif; font-size:58px; line-height:44px; padding:4px 8px 0 0; color:#6b4a26;">${match[2]}</span>`;
+        firstP.innerHTML = text.replace(match[0], match[1] + dropCap) ;
+        // remove the plain letter we duplicated into the drop cap
+        firstP.innerHTML = firstP.innerHTML.replace(match[2] + match[2], match[2]);
+      }
+    });
+
+    return wrap;
+  }
+
+  async function exportPDF() {
+    if (!state.entries.length) {
+      UI.showToast('No entries to export yet.', 'info');
+      return;
+    }
+
+    UI.showToast('Binding your book…', 'info');
+
+    try {
+      await Promise.all([
+        loadScriptOnce('https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js'),
+        loadScriptOnce('https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js')
+      ]);
+      if (document.fonts && document.fonts.ready) await document.fonts.ready;
+
+      const user = await Auth.getUser();
+      const book = buildBookHTML(state.entries, user ? user.username : 'Folio');
+      document.body.appendChild(book);
+
+      const canvas = await window.html2canvas(book, {
+        scale: 2,
+        backgroundColor: '#f4ecd8',
+        useCORS: true,
+        windowWidth: book.scrollWidth
+      });
+      book.remove();
+
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = 210;
+      const pageHeight = 297;
+      const imgWidth = pageWidth;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+
+      let heightLeft = imgHeight;
+      let position = 0;
+      pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+
+      pdf.save(`folio-diary-${new Date().toISOString().slice(0, 10)}.pdf`);
+      UI.showToast('Your diary book is ready.', 'success');
+    } catch (err) {
+      console.error('[Diary] PDF export failed:', err.message);
+      UI.showToast('Could not create the PDF export.', 'error');
+    }
   }
 
   // ─── Public ─────────────────────────────────
