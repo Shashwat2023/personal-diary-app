@@ -2,7 +2,7 @@
    PERSONAL DIARY — DIARY.JS
    Entry CRUD, autosave, search, rendering
    ============================================= */
-import { COMMON_TAGS } from './data/commonTags';
+import { COMMON_TAGS } from './commonTags';
 
 const Diary = (() => {
   // ─── State ──────────────────────────────────
