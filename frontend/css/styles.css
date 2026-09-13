@@ -226,6 +226,18 @@ a:hover { opacity: 0.72; }
   color: var(--accent-warm);
 }
 
+.auth-logo-icon img,
+.sidebar-logo-mark img {
+  width: 19px;
+  height: 19px;
+  object-fit: contain;
+  display: block;
+}
+
+.icon-dark { display: none; }
+[data-theme="dark"] .icon-light { display: none; }
+[data-theme="dark"] .icon-dark { display: block; }
+
 .auth-logo-text {
   font-family: var(--font-display);
   font-size: 1.25rem;
