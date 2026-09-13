@@ -225,6 +225,108 @@
       font-family: var(--font-mono);
     }
 
+    /* ─── Tags field (chip input with # suggestions) ─── */
+    .tags-field {
+      position: relative;
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.3rem;
+      font-family: var(--font-body);
+      padding: 0.3rem 0.5rem;
+      border: 1px solid var(--border-muted);
+      border-radius: var(--radius-sm);
+      background: var(--bg-elevated);
+      cursor: text;
+    }
+
+    .tags-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.3rem;
+    }
+
+    .tag-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      font-size: 0.72rem;
+      line-height: 1;
+      padding: 0.3rem 0.5rem;
+      border-radius: 999px;
+      background: var(--bg-hover);
+      color: var(--accent-warm);
+      border: 1px solid var(--border-muted);
+      white-space: nowrap;
+    }
+
+    .tag-chip-remove {
+      background: none;
+      border: none;
+      padding: 0;
+      margin: 0;
+      color: inherit;
+      opacity: 0.65;
+      font-size: 0.9rem;
+      line-height: 1;
+      cursor: pointer;
+      min-width: 16px;
+      min-height: 16px;
+    }
+    .tag-chip-remove:hover { opacity: 1; }
+
+    .tags-text-input {
+      flex: 1;
+      min-width: 80px;
+      border: none;
+      outline: none;
+      background: transparent;
+      font-family: var(--font-body);
+      font-size: 0.75rem;
+      color: var(--ink-primary);
+      padding: 0.3rem 0.1rem;
+    }
+
+    .tags-suggest {
+      display: none;
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: calc(100% + 4px);
+      z-index: 20;
+      max-height: 220px;
+      overflow-y: auto;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-muted);
+      border-radius: var(--radius-sm);
+      box-shadow: var(--shadow-md);
+    }
+
+    .tag-suggest-item {
+      padding: 0.55rem 0.75rem;
+      font-size: 0.8rem;
+      font-family: var(--font-body);
+      color: var(--ink-primary);
+      cursor: pointer;
+      min-height: 36px;
+      display: flex;
+      align-items: center;
+    }
+    .tag-suggest-item:hover,
+    .tag-suggest-item.active {
+      background: var(--bg-hover);
+      color: var(--accent-warm);
+    }
+
+    @media (max-width: 480px) {
+      .tags-field { min-height: 42px; }
+      .tags-text-input { font-size: 0.85rem; min-width: 60px; }
+      .tag-chip { font-size: 0.78rem; padding: 0.35rem 0.6rem; }
+      .tag-suggest-item { padding: 0.7rem 0.85rem; font-size: 0.85rem; }
+    }
+
     /* ─── Small-screen refinements ─── */
     @media (max-width: 480px) {
       .editor-body { padding: 1.25rem 1rem; }
@@ -235,7 +337,7 @@
       .word-count { display: none !important; }
       .sidebar { width: 86vw; max-width: 320px; }
       .filter-bar { flex-direction: column; }
-      .filter-select, #filter-tag { min-height: 38px; }
+      .filter-select, #filter-tag, .tags-field { min-height: 38px; }
       .btn-sm { min-height: 34px; }
     }
   </style>
@@ -440,7 +542,11 @@
             <option value="health">Health</option>
             <option value="gratitude">Gratitude</option>
           </select>
-          <input type="text" id="tags-input" class="filter-select" placeholder="tags, comma, separated" style="flex:1;" />
+          <div class="tags-field" id="tags-field">
+            <div class="tags-chips" id="tags-chips"></div>
+            <input type="text" id="tags-input" class="tags-text-input" placeholder="Add a tag…" autocomplete="off" inputmode="text" aria-label="Add a tag" />
+            <div class="tags-suggest" id="tags-suggest" role="listbox" aria-label="Tag suggestions"></div>
+          </div>
         </div>
         <div class="mood-row" style="margin-top:0.5rem;">
           <button class="btn btn-ghost btn-sm template-btn" data-template="morning">Morning pages</button>

@@ -20,7 +20,7 @@ const Diary = (() => {
     sortBy: 'newest',
     viewMode: 'list',   // 'list' | 'trash'
     isPreview: false,
-    tagsInput: '',
+    currentTags: [],
     category: ''
   };
 
@@ -62,7 +62,10 @@ const Diary = (() => {
       preview:        document.getElementById('entry-preview'),
       readingTimeEl:  document.getElementById('reading-time'),
       categorySelect: document.getElementById('category-select'),
+      tagsField:      document.getElementById('tags-field'),
+      tagsChips:      document.getElementById('tags-chips'),
       tagsInput:      document.getElementById('tags-input'),
+      tagsSuggest:    document.getElementById('tags-suggest'),
     };
   }
 
@@ -99,7 +102,7 @@ const Diary = (() => {
     if (DOM.pinBtn)       DOM.pinBtn.addEventListener('click', togglePin);
     if (DOM.previewBtn)   DOM.previewBtn.addEventListener('click', togglePreview);
     if (DOM.categorySelect) DOM.categorySelect.addEventListener('change', () => { state.isDirty = true; scheduleAutoSave(); });
-    if (DOM.tagsInput)      DOM.tagsInput.addEventListener('input', () => { state.isDirty = true; scheduleAutoSave(); });
+    initTagsWidget();
 
     if (DOM.newBtn)      DOM.newBtn.addEventListener('click', newEntry);
     if (DOM.saveBtn)     DOM.saveBtn.addEventListener('click', () => saveActive());
@@ -304,7 +307,8 @@ const Diary = (() => {
     updateWordCount();
 
     if (DOM.categorySelect) DOM.categorySelect.value = entry.category || '';
-    if (DOM.tagsInput) DOM.tagsInput.value = (entry.tags || []).join(', ');
+    state.currentTags = [...(entry.tags || [])];
+    renderTagChips();
     updateFavPinButtons(entry.is_favorite, entry.is_pinned);
 
     // Mood
@@ -357,7 +361,8 @@ const Diary = (() => {
       DOM.moodBtns.forEach(b => b.classList.remove('selected'));
     }
     if (DOM.categorySelect) DOM.categorySelect.value = '';
-    if (DOM.tagsInput) DOM.tagsInput.value = '';
+    state.currentTags = [];
+    renderTagChips();
     updateFavPinButtons(false, false);
 
     // Hide delete button for new (unsaved) entries
@@ -400,9 +405,7 @@ const Diary = (() => {
 
     showAutosave('saving');
 
-    const tags = DOM.tagsInput?.value
-      ? DOM.tagsInput.value.split(',').map(t => t.trim()).filter(Boolean)
-      : [];
+    const tags = state.currentTags.slice();
     const category = DOM.categorySelect?.value || null;
 
     try {
@@ -580,6 +583,124 @@ const Diary = (() => {
     }
     if (DOM.pinBtn) {
       DOM.pinBtn.classList.toggle('selected', !!isPinned);
+    }
+  }
+
+  // ─── Tags widget (chip input + # suggestions) ──
+  const COMMON_TAGS = [
+    'instagram', 'work', 'travel', 'family', 'friends', 'health', 'fitness',
+    'gratitude', 'goals', 'dreams', 'memories', 'love', 'food', 'money',
+    'school', 'ideas', 'milestone', 'morning', 'evening', 'weekend',
+    'selfcare', 'nature', 'music', 'books', 'movies'
+  ];
+
+  function renderTagChips() {
+    if (!DOM.tagsChips) return;
+    DOM.tagsChips.innerHTML = state.currentTags.map((t, i) => `
+      <span class="tag-chip">#${escapeHtml(t)}<button type="button" class="tag-chip-remove" data-i="${i}" aria-label="Remove tag ${escapeHtml(t)}">×</button></span>
+    `).join('');
+  }
+
+  function addTag(raw) {
+    const clean = raw.trim().replace(/^#+/, '').toLowerCase();
+    if (!clean) return;
+    if (!state.currentTags.includes(clean)) {
+      state.currentTags.push(clean);
+      renderTagChips();
+      state.isDirty = true;
+      scheduleAutoSave();
+    }
+    if (DOM.tagsInput) DOM.tagsInput.value = '';
+    hideTagSuggestions();
+  }
+
+  function removeTagAt(i) {
+    state.currentTags.splice(i, 1);
+    renderTagChips();
+    state.isDirty = true;
+    scheduleAutoSave();
+  }
+
+  function showTagSuggestions(query) {
+    if (!DOM.tagsSuggest) return;
+    const q = query.toLowerCase().replace(/^#+/, '');
+    const matches = COMMON_TAGS.filter(t => t.startsWith(q) && !state.currentTags.includes(t)).slice(0, 8);
+    if (!matches.length) { hideTagSuggestions(); return; }
+    DOM.tagsSuggest.innerHTML = matches.map(t => `<div class="tag-suggest-item" role="option" data-tag="${t}">#${t}</div>`).join('');
+    DOM.tagsSuggest.style.display = 'block';
+  }
+
+  function hideTagSuggestions() {
+    if (DOM.tagsSuggest) DOM.tagsSuggest.style.display = 'none';
+  }
+
+  function initTagsWidget() {
+    if (!DOM.tagsInput) return;
+
+    // Typing "#" (or anything) shows matching suggestions; typing a space,
+    // comma, or Enter commits the current text as a tag chip — no need to
+    // type a comma to separate tags.
+    DOM.tagsInput.addEventListener('input', () => {
+      const val = DOM.tagsInput.value;
+      if (/[\s,]$/.test(val)) {
+        addTag(val.slice(0, -1));
+        return;
+      }
+      if (val.trim()) {
+        showTagSuggestions(val);
+      } else {
+        hideTagSuggestions();
+      }
+    });
+
+    DOM.tagsInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        addTag(DOM.tagsInput.value);
+      } else if (e.key === 'Backspace' && !DOM.tagsInput.value && state.currentTags.length) {
+        removeTagAt(state.currentTags.length - 1);
+      }
+    });
+
+    DOM.tagsInput.addEventListener('focus', () => {
+      if (DOM.tagsInput.value.trim()) showTagSuggestions(DOM.tagsInput.value);
+    });
+
+    DOM.tagsInput.addEventListener('blur', () => {
+      // Commit whatever's left so a typed-but-unsubmitted tag isn't lost,
+      // but delay so a suggestion click (which also blurs) can land first.
+      setTimeout(() => {
+        if (document.activeElement !== DOM.tagsInput) {
+          if (DOM.tagsInput.value.trim()) addTag(DOM.tagsInput.value);
+          hideTagSuggestions();
+        }
+      }, 150);
+    });
+
+    if (DOM.tagsSuggest) {
+      DOM.tagsSuggest.addEventListener('mousedown', e => {
+        const item = e.target.closest('.tag-suggest-item');
+        if (item) {
+          e.preventDefault(); // keep focus on the text input
+          addTag(item.dataset.tag);
+          DOM.tagsInput.focus();
+        }
+      });
+    }
+
+    if (DOM.tagsChips) {
+      DOM.tagsChips.addEventListener('click', e => {
+        const btn = e.target.closest('.tag-chip-remove');
+        if (btn) removeTagAt(Number(btn.dataset.i));
+      });
+    }
+
+    if (DOM.tagsField) {
+      DOM.tagsField.addEventListener('click', e => {
+        if (e.target === DOM.tagsField || e.target === DOM.tagsChips) {
+          DOM.tagsInput.focus();
+        }
+      });
     }
   }
 
