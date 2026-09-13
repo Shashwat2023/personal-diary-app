@@ -1,5 +1,5 @@
 
-export const COMMON_TAGS = [
+const COMMON_TAGS = [
   'life',
   'living',
   'daily',
