@@ -1,4 +1,3 @@
-// src/data/commonTags.js
 
 export const COMMON_TAGS = [
   'life',
