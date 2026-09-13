@@ -3,6 +3,8 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const { jwtVerify, createRemoteJWKSet } = require('jose');
 const { Pool } = require('pg');
 const path = require('path');
@@ -25,9 +27,34 @@ const pool = new Pool({
     : false
 });
 
+// CSP off for now — the frontend relies on inline <script> blocks and several
+// CDNs/Google/Supabase origins; a default CSP would break it. Helmet's other
+// headers (X-Content-Type-Options, X-Frame-Options, HSTS, etc.) still apply.
+app.use(helmet({ contentSecurityPolicy: false }));
+
+// CORS locked to known frontend origins (was: reflecting ANY origin with
+// credentials on, since CORS_ORIGIN was never actually set in Vercel).
+const ALLOWED_ORIGINS = [
+  process.env.APP_URL,
+  'https://personaldiary-beta.vercel.app',
+  'http://localhost:5000'
+].filter(Boolean);
+
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || true,
+  origin(origin, callback) {
+    if (!origin || ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+    callback(new Error('Not allowed by CORS'));
+  },
   credentials: true
+}));
+
+// Basic abuse/DoS protection — no limiter existed on any route before.
+app.use('/api', rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many requests, please try again later.' }
 }));
 
 app.use(express.json({ limit: '1mb' }));
@@ -103,6 +130,31 @@ const authenticateToken = async (req, res, next) => {
 // Account creation/login is handled entirely by Supabase Auth (Google
 // sign-in) on the frontend now — no custom register/login/verify endpoints.
 
+// The mood buttons in the UI only ever send one of these — but the API never
+// enforced that, so anyone calling it directly could store arbitrary strings.
+const VALID_MOODS = ['happy', 'calm', 'reflective', 'anxious', 'sad', 'grateful'];
+
+function validateEntryFields({ title, content, mood, tags, category }) {
+  if (title != null && (typeof title !== 'string' || title.length > 200)) {
+    return 'Title must be 200 characters or fewer';
+  }
+  if (content != null && (typeof content !== 'string' || content.length > 50000)) {
+    return 'Content must be 50,000 characters or fewer';
+  }
+  if (mood != null && !VALID_MOODS.includes(mood)) {
+    return `Mood must be one of: ${VALID_MOODS.join(', ')}`;
+  }
+  if (category != null && (typeof category !== 'string' || category.length > 50)) {
+    return 'Category must be 50 characters or fewer';
+  }
+  if (tags != null) {
+    if (!Array.isArray(tags) || tags.length > 20 || tags.some(t => typeof t !== 'string' || t.length > 30)) {
+      return 'Tags must be an array of up to 20 strings, each 30 characters or fewer';
+    }
+  }
+  return null;
+}
+
 app.post('/api/entries', authenticateToken, async (req, res) => {
   try {
     const { title, content, mood, tags, category } = req.body;
@@ -112,6 +164,11 @@ app.post('/api/entries', authenticateToken, async (req, res) => {
         success: false,
         message: 'Content is required'
       });
+    }
+
+    const validationError = validateEntryFields(req.body);
+    if (validationError) {
+      return res.status(400).json({ success: false, message: validationError });
     }
 
     const result = await pool.query(
@@ -171,6 +228,11 @@ app.get('/api/entries', authenticateToken, async (req, res) => {
 app.put('/api/entries/:id', authenticateToken, async (req, res) => {
   try {
     const { title, content, mood, tags, category, is_favorite, is_pinned } = req.body;
+
+    const validationError = validateEntryFields(req.body);
+    if (validationError) {
+      return res.status(400).json({ success: false, message: validationError });
+    }
 
     const result = await pool.query(
       `UPDATE entries

@@ -185,10 +185,16 @@ const UI = (() => {
     return stripped.length > len ? stripped.slice(0, len) + '…' : stripped;
   }
 
+  // ─── Escape (defense-in-depth: mood/tags aren't validated server-side) ──
+  function escapeHtml(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
   // ─── Mood pill HTML ──────────────────────────
   function getMoodPill(mood) {
     if (!mood) return '';
-    return `<span class="entry-mood-pill mood-pill-${mood}">${mood}</span>`;
+    const safe = escapeHtml(mood);
+    return `<span class="entry-mood-pill mood-pill-${safe}">${safe}</span>`;
   }
 
   // ─── Sticky header shadow ────────────────────
