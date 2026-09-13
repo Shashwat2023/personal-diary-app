@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Privacy Policy — Folio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/animations.css" />
+  <style>
+    .legal-wrapper { max-width: 760px; margin: 0 auto; padding: 3rem 1.5rem 5rem; position: relative; z-index: 1; }
+    .legal-card { background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 2.5rem clamp(1.5rem, 5vw, 3.5rem); box-shadow: var(--shadow-md); }
+    .legal-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2rem; }
+    .legal-back { color: var(--ink-secondary); text-decoration: none; font-family: var(--font-body); font-size: 0.9rem; }
+    .legal-back:hover { color: var(--ink-primary); }
+    .legal-content h1 { font-family: var(--font-display); font-size: 2rem; color: var(--ink-primary); margin: 0 0 0.25rem; }
+    .legal-content .legal-updated { color: var(--ink-secondary); font-size: 0.85rem; margin-bottom: 2rem; }
+    .legal-content h2 { font-family: var(--font-display); font-size: 1.35rem; color: var(--ink-primary); margin: 2rem 0 0.75rem; }
+    .legal-content p, .legal-content li { font-family: var(--font-body); color: var(--ink-primary); line-height: 1.7; font-size: 1rem; }
+    .legal-content ul { padding-left: 1.4em; }
+    .legal-content li { margin-bottom: 0.4rem; }
+    .legal-content a { color: var(--accent-warm); }
+  </style>
+</head>
+<body class="page-enter">
+
+  <div class="auth-noise"></div>
+
+  <div class="legal-wrapper">
+    <div class="legal-card">
+      <div class="legal-top">
+        <a href="login.html" class="legal-back">← Back</a>
+        <button class="theme-toggle" id="theme-toggle" title="Switch theme" aria-label="Switch theme">◑</button>
+      </div>
+
+      <div class="legal-content">
+        <h1>Privacy Policy</h1>
+        <p class="legal-updated">Last updated: September 2026</p>
+
+        <p>Folio ("we", "us") is an independent, individually-operated journaling application. This page explains what data we collect, why, and how it's handled. It applies to everyone who uses Folio.</p>
+
+        <h2>1. Who operates Folio</h2>
+        <p>Folio is operated by an individual developer, Shashwat Tripathi, based in Punjab, India. This is not a registered company. For any privacy question, contact: <a href="mailto:shashwattripathifiverr@gmail.com">shashwattripathifiverr@gmail.com</a>.</p>
+
+        <h2>2. What we collect</h2>
+        <ul>
+          <li><strong>Account data (via Google Sign-In):</strong> your name, email address, and profile picture, provided to us by Google when you sign in. We never see or store your Google password.</li>
+          <li><strong>Your diary content:</strong> the entries you write — title, content, mood, tags, category, and timestamps.</li>
+          <li><strong>Basic technical logs:</strong> IP address and request logs, generated automatically by our hosting provider for security and debugging. We do not run analytics or advertising trackers of any kind.</li>
+        </ul>
+
+        <h2>3. How we use it</h2>
+        <ul>
+          <li>To authenticate you and keep your account secure.</li>
+          <li>To store, display, and let you manage your own diary entries.</li>
+          <li>To respond if you contact us for support.</li>
+          <li>To comply with legal obligations where applicable.</li>
+        </ul>
+        <p>We do not sell your data, and we do not share your diary content with anyone.</p>
+
+        <h2>4. Who else processes data on our behalf</h2>
+        <ul>
+          <li><strong>Google</strong> — provides sign-in (OAuth). Governed by <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google's Privacy Policy</a>.</li>
+          <li><strong>Supabase</strong> — hosts our authentication system and database where entries are stored.</li>
+          <li><strong>Vercel</strong> — hosts the website and generates basic server logs.</li>
+          <li><strong>Google Fonts / jsDelivr (CDN)</strong> — deliver fonts and the Supabase code library to your browser; these services may see your IP address when your browser requests those files.</li>
+        </ul>
+
+        <h2>5. Data retention</h2>
+        <p>Your entries are kept until you delete them. Deleting an entry moves it to Trash, from where you can permanently delete it. Permanently deleted entries are removed from our database, though routine infrastructure backups may retain copies briefly before they age out.</p>
+
+        <h2>6. Your rights</h2>
+        <p>You can access, edit, or delete any entry directly in the app at any time. You may also request full account deletion, correction of your data, or a copy of your data by emailing <a href="mailto:shashwattripathifiverr@gmail.com">shashwattripathifiverr@gmail.com</a>. We aim to respond within 30 days.</p>
+
+        <h2>7. Children's privacy</h2>
+        <p>Folio is not directed at children and is not intended for use by anyone under 18. We do not knowingly collect data from children.</p>
+
+        <h2>8. Cookies &amp; local storage</h2>
+        <p>See our <a href="cookie-policy.html">Cookie Policy</a> for details on the local storage used to keep you signed in.</p>
+
+        <h2>9. Security</h2>
+        <p>All traffic to Folio is encrypted (HTTPS). No method of storage or transmission is 100% secure, but we rely on our infrastructure providers' (Google, Supabase, Vercel) security practices to protect your data.</p>
+
+        <h2>10. Changes to this policy</h2>
+        <p>We may update this page from time to time. Continued use of Folio after a change means you accept the updated policy.</p>
+
+        <h2>11. Contact</h2>
+        <p>Shashwat Tripathi · Phagwara, Punjab, India · <a href="mailto:shashwattripathifiverr@gmail.com">shashwattripathifiverr@gmail.com</a></p>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/ui.js"></script>
+  <script>
+    UI.initTheme();
+    document.getElementById('theme-toggle')?.addEventListener('click', () => UI.toggleTheme());
+  </script>
+</body>
+</html>

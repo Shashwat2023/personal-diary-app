@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cookie Policy — Folio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/animations.css" />
+  <style>
+    .legal-wrapper { max-width: 760px; margin: 0 auto; padding: 3rem 1.5rem 5rem; position: relative; z-index: 1; }
+    .legal-card { background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 2.5rem clamp(1.5rem, 5vw, 3.5rem); box-shadow: var(--shadow-md); }
+    .legal-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2rem; }
+    .legal-back { color: var(--ink-secondary); text-decoration: none; font-family: var(--font-body); font-size: 0.9rem; }
+    .legal-back:hover { color: var(--ink-primary); }
+    .legal-content h1 { font-family: var(--font-display); font-size: 2rem; color: var(--ink-primary); margin: 0 0 0.25rem; }
+    .legal-content .legal-updated { color: var(--ink-secondary); font-size: 0.85rem; margin-bottom: 2rem; }
+    .legal-content h2 { font-family: var(--font-display); font-size: 1.35rem; color: var(--ink-primary); margin: 2rem 0 0.75rem; }
+    .legal-content p, .legal-content li { font-family: var(--font-body); color: var(--ink-primary); line-height: 1.7; font-size: 1rem; }
+    .legal-content ul { padding-left: 1.4em; }
+    .legal-content li { margin-bottom: 0.4rem; }
+    .legal-content a { color: var(--accent-warm); }
+    .legal-content table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-family: var(--font-body); }
+    .legal-content th, .legal-content td { text-align: left; padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border-subtle); font-size: 0.92rem; }
+  </style>
+</head>
+<body class="page-enter">
+
+  <div class="auth-noise"></div>
+
+  <div class="legal-wrapper">
+    <div class="legal-card">
+      <div class="legal-top">
+        <a href="login.html" class="legal-back">← Back</a>
+        <button class="theme-toggle" id="theme-toggle" title="Switch theme" aria-label="Switch theme">◑</button>
+      </div>
+
+      <div class="legal-content">
+        <h1>Cookie Policy</h1>
+        <p class="legal-updated">Last updated: September 2026</p>
+
+        <h2>Do we use cookies?</h2>
+        <p>Folio does not use tracking, advertising, or analytics cookies of any kind. We don't run Google Analytics, ad pixels, or any similar tool.</p>
+
+        <h2>What we do use</h2>
+        <p>To keep you signed in, Supabase (our authentication provider) stores your login session in your browser's <strong>local storage</strong> — a similar mechanism to a cookie, but not sent automatically with every request the way cookies are. This is strictly functional: without it, you'd have to sign in again on every visit.</p>
+
+        <table>
+          <tr><th>Name / type</th><th>Purpose</th><th>Duration</th></tr>
+          <tr><td>Supabase auth session (local storage)</td><td>Keeps you signed in</td><td>Until you sign out or it expires</td></tr>
+        </table>
+
+        <h2>Third-party resources</h2>
+        <ul>
+          <li><strong>Google</strong> sets its own cookies on google.com during the sign-in step, governed by Google's own cookie policy — Folio does not control these.</li>
+          <li><strong>Google Fonts</strong> and <strong>jsDelivr</strong> (CDN) may see your IP address when your browser loads fonts or the Supabase code library, as with any external resource.</li>
+        </ul>
+
+        <h2>Do you need to consent to anything?</h2>
+        <p>Strictly necessary/functional storage — used only to keep you logged in, with no tracking or profiling purpose — is generally exempt from cookie-consent requirements under both GDPR and India's guidance. Since Folio currently sets no analytics, advertising, or tracking cookies, <strong>no cookie-consent banner is required at this time</strong>. If analytics or advertising are added in the future, this policy and the consent requirement will be updated accordingly.</p>
+
+        <h2>Managing local storage</h2>
+        <p>You can clear this data any time via your browser's settings (usually under Privacy → Site Data). Doing so will simply sign you out.</p>
+
+        <h2>Contact</h2>
+        <p>Shashwat Tripathi · Phagwara, Punjab, India · <a href="mailto:shashwattripathifiverr@gmail.com">shashwattripathifiverr@gmail.com</a></p>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/ui.js"></script>
+  <script>
+    UI.initTheme();
+    document.getElementById('theme-toggle')?.addEventListener('click', () => UI.toggleTheme());
+  </script>
+</body>
+</html>

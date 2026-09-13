@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Terms & Conditions — Folio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/animations.css" />
+  <style>
+    .legal-wrapper { max-width: 760px; margin: 0 auto; padding: 3rem 1.5rem 5rem; position: relative; z-index: 1; }
+    .legal-card { background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 2.5rem clamp(1.5rem, 5vw, 3.5rem); box-shadow: var(--shadow-md); }
+    .legal-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2rem; }
+    .legal-back { color: var(--ink-secondary); text-decoration: none; font-family: var(--font-body); font-size: 0.9rem; }
+    .legal-back:hover { color: var(--ink-primary); }
+    .legal-content h1 { font-family: var(--font-display); font-size: 2rem; color: var(--ink-primary); margin: 0 0 0.25rem; }
+    .legal-content .legal-updated { color: var(--ink-secondary); font-size: 0.85rem; margin-bottom: 2rem; }
+    .legal-content h2 { font-family: var(--font-display); font-size: 1.35rem; color: var(--ink-primary); margin: 2rem 0 0.75rem; }
+    .legal-content p, .legal-content li { font-family: var(--font-body); color: var(--ink-primary); line-height: 1.7; font-size: 1rem; }
+    .legal-content ul { padding-left: 1.4em; }
+    .legal-content li { margin-bottom: 0.4rem; }
+    .legal-content a { color: var(--accent-warm); }
+  </style>
+</head>
+<body class="page-enter">
+
+  <div class="auth-noise"></div>
+
+  <div class="legal-wrapper">
+    <div class="legal-card">
+      <div class="legal-top">
+        <a href="login.html" class="legal-back">← Back</a>
+        <button class="theme-toggle" id="theme-toggle" title="Switch theme" aria-label="Switch theme">◑</button>
+      </div>
+
+      <div class="legal-content">
+        <h1>Terms &amp; Conditions</h1>
+        <p class="legal-updated">Last updated: September 2026</p>
+
+        <p>These Terms govern your use of Folio, a journaling application operated by Shashwat Tripathi ("we", "us"), an individual based in Punjab, India. By creating an account or using Folio, you agree to these Terms.</p>
+
+        <h2>1. The service</h2>
+        <p>Folio lets you write and privately keep diary/journal entries, sign in via your Google account, and (currently or in future) access optional paid plans with additional features.</p>
+
+        <h2>2. Eligibility</h2>
+        <p>You must be legally able to enter into a binding agreement in your country to use Folio. We recommend Folio for users aged 18 and over. If you are a minor, you may only use Folio with the consent and supervision of a parent or guardian, where permitted by local law.</p>
+
+        <h2>3. Your account</h2>
+        <p>Sign-in is handled entirely through Google. You are responsible for keeping your Google account secure — anyone with access to it can access your Folio account. One Folio account per person.</p>
+
+        <h2>4. Your content</h2>
+        <p>You own everything you write in Folio. We do not claim ownership of your entries. By using Folio, you grant us the limited technical right to store and display your content back to you, solely to operate the service. You are solely responsible for what you write and for making sure it doesn't violate any law or third party's rights.</p>
+
+        <h2>5. Acceptable use</h2>
+        <ul>
+          <li>Do not use Folio for anything illegal.</li>
+          <li>Do not attempt to access another user's entries or account.</li>
+          <li>Do not attempt to disrupt, reverse-engineer, or attack the service.</li>
+        </ul>
+
+        <h2>6. Paid plans</h2>
+        <p>Folio may offer optional paid plans. Where applicable, pricing, billing frequency, and renewal terms will be shown to you before you pay. Subscriptions renew automatically unless cancelled. See our <a href="refund-policy.html">Refund Policy</a> for cancellation and refund terms.</p>
+
+        <h2>7. Not professional advice</h2>
+        <p>Folio is a personal journaling tool. It is not a substitute for professional medical, psychological, or mental health advice or treatment. If you are in crisis or need support, please contact a qualified professional or local emergency/helpline services.</p>
+
+        <h2>8. Termination</h2>
+        <p>You may stop using Folio and request account deletion at any time by emailing us. We may suspend or terminate accounts that violate these Terms.</p>
+
+        <h2>9. Disclaimers</h2>
+        <p>Folio is provided "as is" and "as available", without warranties of any kind, express or implied, including uninterrupted availability or fitness for a particular purpose.</p>
+
+        <h2>10. Limitation of liability</h2>
+        <p>To the maximum extent permitted by law, we are not liable for any indirect, incidental, or consequential damages arising from your use of Folio.</p>
+
+        <h2>11. Governing law</h2>
+        <p>These Terms are governed by the laws of India. Courts located in Punjab, India shall have exclusive jurisdiction over any dispute arising from these Terms.</p>
+
+        <h2>12. Changes to these Terms</h2>
+        <p>We may update these Terms from time to time. Continued use of Folio after a change means you accept the updated Terms.</p>
+
+        <h2>13. Contact</h2>
+        <p>Shashwat Tripathi · Phagwara, Punjab, India · <a href="mailto:shashwattripathifiverr@gmail.com">shashwattripathifiverr@gmail.com</a></p>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/ui.js"></script>
+  <script>
+    UI.initTheme();
+    document.getElementById('theme-toggle')?.addEventListener('click', () => UI.toggleTheme());
+  </script>
+</body>
+</html>

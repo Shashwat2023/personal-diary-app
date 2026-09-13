@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Refund Policy — Folio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/animations.css" />
+  <style>
+    .legal-wrapper { max-width: 760px; margin: 0 auto; padding: 3rem 1.5rem 5rem; position: relative; z-index: 1; }
+    .legal-card { background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 2.5rem clamp(1.5rem, 5vw, 3.5rem); box-shadow: var(--shadow-md); }
+    .legal-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2rem; }
+    .legal-back { color: var(--ink-secondary); text-decoration: none; font-family: var(--font-body); font-size: 0.9rem; }
+    .legal-back:hover { color: var(--ink-primary); }
+    .legal-content h1 { font-family: var(--font-display); font-size: 2rem; color: var(--ink-primary); margin: 0 0 0.25rem; }
+    .legal-content .legal-updated { color: var(--ink-secondary); font-size: 0.85rem; margin-bottom: 2rem; }
+    .legal-content h2 { font-family: var(--font-display); font-size: 1.35rem; color: var(--ink-primary); margin: 2rem 0 0.75rem; }
+    .legal-content p, .legal-content li { font-family: var(--font-body); color: var(--ink-primary); line-height: 1.7; font-size: 1rem; }
+    .legal-content ul { padding-left: 1.4em; }
+    .legal-content li { margin-bottom: 0.4rem; }
+    .legal-content a { color: var(--accent-warm); }
+    .legal-note { background: var(--accent-pale); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 0.9rem 1.1rem; font-size: 0.9rem; }
+  </style>
+</head>
+<body class="page-enter">
+
+  <div class="auth-noise"></div>
+
+  <div class="legal-wrapper">
+    <div class="legal-card">
+      <div class="legal-top">
+        <a href="login.html" class="legal-back">← Back</a>
+        <button class="theme-toggle" id="theme-toggle" title="Switch theme" aria-label="Switch theme">◑</button>
+      </div>
+
+      <div class="legal-content">
+        <h1>Refund Policy</h1>
+        <p class="legal-updated">Last updated: September 2026</p>
+
+        <p class="legal-note">Folio's free features have no charge and nothing to refund. This policy applies to any paid plan, once introduced.</p>
+
+        <h2>1. Free usage</h2>
+        <p>Core journaling features are free. No payment, no refund applicable.</p>
+
+        <h2>2. Paid plans</h2>
+        <p>Where offered, paid plans are billed on a recurring basis (e.g. monthly or annually) and renew automatically until cancelled. Exact pricing and billing frequency are shown before you pay.</p>
+
+        <h2>3. Cancellation</h2>
+        <p>You may cancel a paid plan at any time. Your access continues until the end of the period you've already paid for; we do not charge you again after cancellation.</p>
+
+        <h2>4. Refund eligibility</h2>
+        <ul>
+          <li>First-time subscribers may request a full refund within <strong>7 days</strong> of their first payment if unsatisfied, by emailing us.</li>
+          <li>Refunds are not provided for renewal charges, partially used billing periods after the 7-day window, or accounts suspended for violating our <a href="terms.html">Terms &amp; Conditions</a>.</li>
+        </ul>
+
+        <h2>5. How to request a refund</h2>
+        <p>Email <a href="mailto:shashwattripathifiverr@gmail.com">shashwattripathifiverr@gmail.com</a> with your account email and reason. Approved refunds are processed to your original payment method within a reasonable time, typically 5–10 business days.</p>
+
+        <h2>6. Your statutory rights</h2>
+        <p>This policy is in addition to, and does not limit, any rights available to you under applicable consumer protection law in your country, including India's Consumer Protection (E-Commerce) Rules, 2020, where applicable.</p>
+
+        <h2>7. Contact</h2>
+        <p>Shashwat Tripathi · Phagwara, Punjab, India · <a href="mailto:shashwattripathifiverr@gmail.com">shashwattripathifiverr@gmail.com</a></p>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/ui.js"></script>
+  <script>
+    UI.initTheme();
+    document.getElementById('theme-toggle')?.addEventListener('click', () => UI.toggleTheme());
+  </script>
+</body>
+</html>
