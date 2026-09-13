@@ -327,6 +327,89 @@
       .tag-suggest-item { padding: 0.7rem 0.85rem; font-size: 0.85rem; }
     }
 
+    /* ─── Date filter chip ─── */
+    .date-filter-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.68rem;
+      font-family: var(--font-mono);
+      color: var(--accent-warm);
+      background: var(--bg-hover);
+      border: 1px solid var(--border-muted);
+      border-radius: 999px;
+      padding: 0.2rem 0.4rem 0.2rem 0.6rem;
+      margin: 0 1rem 0.4rem;
+    }
+    .date-filter-chip button {
+      background: none; border: none; color: inherit; cursor: pointer;
+      font-size: 0.9rem; line-height: 1; padding: 0 0.2rem;
+    }
+
+    /* ─── Wide modal (calendar / stats) ─── */
+    .modal-wide { max-width: 420px; }
+
+    /* ─── Calendar modal ─── */
+    .cal-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+    .cal-nav button {
+      background: none; border: 1px solid var(--border-muted); border-radius: var(--radius-sm);
+      color: var(--ink-primary); cursor: pointer; padding: 0.3rem 0.6rem; font-size: 0.85rem;
+      min-width: 34px; min-height: 34px;
+    }
+    .cal-nav button:hover { background: var(--bg-hover); }
+    .cal-month-label { font-family: var(--font-display); font-style: italic; font-size: 1.1rem; color: var(--ink-primary); }
+    .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+    .cal-weekday {
+      text-align: center; font-size: 0.62rem; letter-spacing: 0.05em; text-transform: uppercase;
+      color: var(--ink-secondary); padding-bottom: 0.3rem;
+    }
+    .cal-day {
+      position: relative;
+      aspect-ratio: 1;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.78rem;
+      color: var(--ink-primary);
+      border-radius: var(--radius-sm);
+      background: transparent;
+      border: none;
+      cursor: default;
+      min-height: 34px;
+    }
+    .cal-day.empty { visibility: hidden; }
+    .cal-day.has-entry { cursor: pointer; font-weight: 600; }
+    .cal-day.has-entry:hover { background: var(--bg-hover); }
+    .cal-day.has-entry::after {
+      content: ''; position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%);
+      width: 4px; height: 4px; border-radius: 50%; background: var(--accent-warm);
+    }
+    .cal-day.is-today { border: 1px solid var(--accent-warm); }
+    .cal-day.is-selected { background: var(--accent-warm); color: #fff; }
+    .cal-day.is-selected::after { background: #fff; }
+
+    /* ─── Stats modal ─── */
+    .stats-summary { display: flex; gap: 1.5rem; margin-bottom: 1.5rem; }
+    .stats-summary-item { flex: 1; text-align: center; }
+    .stats-summary-num { font-family: var(--font-display); font-size: 1.8rem; color: var(--accent-warm); line-height: 1; }
+    .stats-summary-label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-secondary); margin-top: 0.3rem; }
+    .stats-section-title { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-secondary); margin: 1.1rem 0 0.5rem; }
+    .stats-bar-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem; font-size: 0.78rem; }
+    .stats-bar-label { width: 78px; flex-shrink: 0; color: var(--ink-primary); text-transform: capitalize; }
+    .stats-bar-track { flex: 1; height: 8px; background: var(--bg-hover); border-radius: 4px; overflow: hidden; }
+    .stats-bar-fill { height: 100%; background: var(--accent-warm); border-radius: 4px; }
+    .stats-bar-count { width: 24px; text-align: right; color: var(--ink-secondary); font-size: 0.72rem; }
+    .stats-tags { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+    .stats-tag-chip {
+      font-size: 0.72rem; padding: 0.25rem 0.55rem; border-radius: 999px;
+      background: var(--bg-hover); border: 1px solid var(--border-muted); color: var(--accent-warm);
+    }
+    .stats-empty { color: var(--ink-secondary); font-size: 0.85rem; font-style: italic; }
+
+    @media (max-width: 480px) {
+      .modal-wide { max-width: 100%; }
+      .cal-day { font-size: 0.85rem; }
+      .stats-summary-num { font-size: 1.5rem; }
+    }
+
     /* ─── Small-screen refinements ─── */
     @media (max-width: 480px) {
       .editor-body { padding: 1.25rem 1rem; }
@@ -401,6 +484,7 @@
 
     <!-- Streak + entries count -->
     <div class="entries-count" id="entries-count"></div>
+    <span class="date-filter-chip" id="date-filter-chip" style="display:none"></span>
     <div class="streak-badge" id="streak-badge" style="display:none"></div>
 
     <div class="sidebar-actions" style="padding-top:0;gap:0.4rem;flex-wrap:wrap;">

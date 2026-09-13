@@ -18,6 +18,7 @@ const Diary = (() => {
     isDirty: false,
     filterMood: '',
     filterTag: '',
+    filterDate: null,
     sortBy: 'newest',
     viewMode: 'list',   // 'list' | 'trash'
     isPreview: false,
@@ -51,11 +52,14 @@ const Diary = (() => {
       editorScroll:   document.getElementById('editor-scroll'),
       liveTime:       document.getElementById('live-time'),
       entriesCount:   document.getElementById('entries-count'),
+      dateFilterChip: document.getElementById('date-filter-chip'),
       filterMood:     document.getElementById('filter-mood'),
       filterTag:      document.getElementById('filter-tag'),
       sortSelect:     document.getElementById('sort-select'),
       streakBadge:    document.getElementById('streak-badge'),
       trashBtn:       document.getElementById('trash-toggle-btn'),
+      calendarBtn:    document.getElementById('calendar-toggle-btn'),
+      statsBtn:       document.getElementById('stats-btn'),
       exportBtn:      document.getElementById('export-json-btn'),
       favoriteBtn:    document.getElementById('favorite-btn'),
       pinBtn:         document.getElementById('pin-btn'),
@@ -98,6 +102,16 @@ const Diary = (() => {
     if (DOM.filterTag)  DOM.filterTag.addEventListener('input', e => { state.filterTag = e.target.value.toLowerCase().trim(); renderSidebar(); });
     if (DOM.sortSelect) DOM.sortSelect.addEventListener('change', e => { state.sortBy = e.target.value; renderSidebar(); });
     if (DOM.trashBtn)   DOM.trashBtn.addEventListener('click', toggleTrashView);
+    if (DOM.calendarBtn) DOM.calendarBtn.addEventListener('click', showCalendarModal);
+    if (DOM.statsBtn)     DOM.statsBtn.addEventListener('click', showStatsModal);
+    if (DOM.dateFilterChip) {
+      DOM.dateFilterChip.addEventListener('click', e => {
+        if (e.target.id === 'date-filter-clear') {
+          state.filterDate = null;
+          renderSidebar();
+        }
+      });
+    }
     if (DOM.exportBtn)  DOM.exportBtn.addEventListener('click', exportPDF);
     if (DOM.favoriteBtn) DOM.favoriteBtn.addEventListener('click', toggleFavorite);
     if (DOM.pinBtn)       DOM.pinBtn.addEventListener('click', togglePin);
@@ -191,6 +205,9 @@ const Diary = (() => {
     if (state.filterTag) {
       filtered = filtered.filter(e => (e.tags || []).some(t => t.toLowerCase().includes(state.filterTag)));
     }
+    if (state.filterDate) {
+      filtered = filtered.filter(e => (e.created_at || '').slice(0, 10) === state.filterDate);
+    }
 
     // Sort
     filtered = [...filtered].sort((a, b) => {
@@ -208,6 +225,16 @@ const Diary = (() => {
       DOM.entriesCount.textContent = state.entries.length
         ? `${filtered.length} of ${state.entries.length} entr${state.entries.length === 1 ? 'y' : 'ies'}`
         : '';
+    }
+
+    if (DOM.dateFilterChip) {
+      if (state.filterDate) {
+        const label = new Date(state.filterDate + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+        DOM.dateFilterChip.innerHTML = `${escapeHtml(label)} <button type="button" id="date-filter-clear" aria-label="Clear date filter">×</button>`;
+        DOM.dateFilterChip.style.display = 'inline-flex';
+      } else {
+        DOM.dateFilterChip.style.display = 'none';
+      }
     }
 
     if (filtered.length === 0) {
@@ -588,7 +615,6 @@ const Diary = (() => {
   }
 
   // ─── Tags widget (chip input + # suggestions) ──
-  
   const availableTags = COMMON_TAGS;
 
   function renderTagChips() {
@@ -698,6 +724,141 @@ const Diary = (() => {
           DOM.tagsInput.focus();
         }
       });
+    }
+  }
+
+  // ─── Generic modal helper (reuses .modal-overlay/.modal styling) ──
+  function openModal(title, bodyHtml, { wide = false } = {}) {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+      <div class="modal${wide ? ' modal-wide' : ''}">
+        <h3 class="modal-title">${title}</h3>
+        <div class="modal-body" style="font-family:var(--font-body);">${bodyHtml}</div>
+        <div class="modal-actions">
+          <button class="btn btn-ghost btn-sm" id="generic-modal-close">Close</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    function close() {
+      overlay.classList.add('closing');
+      overlay.querySelector('.modal').classList.add('closing');
+      setTimeout(() => overlay.remove(), 220);
+    }
+
+    overlay.querySelector('#generic-modal-close').addEventListener('click', close);
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+
+    return { overlay, close };
+  }
+
+  // ─── Calendar modal ─────────────────────────
+  function showCalendarModal() {
+    const entryDates = new Set(state.entries.map(e => (e.created_at || '').slice(0, 10)));
+    const today = new Date();
+    let viewYear = today.getFullYear();
+    let viewMonth = today.getMonth(); // 0-11
+
+    const { overlay, close } = openModal('Calendar', '<div id="cal-container"></div>', { wide: true });
+    const container = overlay.querySelector('#cal-container');
+
+    function renderCalendar() {
+      const first = new Date(viewYear, viewMonth, 1);
+      const startWeekday = first.getDay();
+      const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+      const monthLabel = first.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+      const todayKey = today.toISOString().slice(0, 10);
+
+      let cells = '';
+      for (let i = 0; i < startWeekday; i++) cells += `<div class="cal-day empty"></div>`;
+      for (let d = 1; d <= daysInMonth; d++) {
+        const key = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        const has = entryDates.has(key);
+        const isToday = key === todayKey;
+        const isSelected = key === state.filterDate;
+        cells += `<button type="button" class="cal-day${has ? ' has-entry' : ''}${isToday ? ' is-today' : ''}${isSelected ? ' is-selected' : ''}" data-date="${key}" ${has ? '' : 'disabled'}>${d}</button>`;
+      }
+
+      container.innerHTML = `
+        <div class="cal-nav">
+          <button type="button" id="cal-prev" aria-label="Previous month">‹</button>
+          <span class="cal-month-label">${monthLabel}</span>
+          <button type="button" id="cal-next" aria-label="Next month">›</button>
+        </div>
+        <div class="cal-grid">
+          <div class="cal-weekday">Su</div><div class="cal-weekday">Mo</div><div class="cal-weekday">Tu</div>
+          <div class="cal-weekday">We</div><div class="cal-weekday">Th</div><div class="cal-weekday">Fr</div><div class="cal-weekday">Sa</div>
+          ${cells}
+        </div>
+      `;
+
+      container.querySelector('#cal-prev').addEventListener('click', () => {
+        viewMonth--; if (viewMonth < 0) { viewMonth = 11; viewYear--; }
+        renderCalendar();
+      });
+      container.querySelector('#cal-next').addEventListener('click', () => {
+        viewMonth++; if (viewMonth > 11) { viewMonth = 0; viewYear++; }
+        renderCalendar();
+      });
+      container.querySelectorAll('.cal-day.has-entry').forEach(btn => {
+        btn.addEventListener('click', () => {
+          state.filterDate = btn.dataset.date;
+          if (state.viewMode === 'trash') toggleTrashView();
+          renderSidebar();
+          close();
+        });
+      });
+    }
+
+    renderCalendar();
+  }
+
+  // ─── Stats modal ────────────────────────────
+  async function showStatsModal() {
+    const { overlay } = openModal('Your stats', '<p class="stats-empty">Loading…</p>', { wide: true });
+    const body = overlay.querySelector('.modal-body');
+
+    try {
+      const data = await API.getStats();
+
+      const moodEntries = Object.entries(data.moodCounts || {}).sort((a, b) => b[1] - a[1]);
+      const maxMood = moodEntries.length ? Math.max(...moodEntries.map(m => m[1])) : 1;
+      const moodHtml = moodEntries.length
+        ? moodEntries.map(([mood, count]) => `
+            <div class="stats-bar-row">
+              <span class="stats-bar-label">${escapeHtml(mood)}</span>
+              <span class="stats-bar-track"><span class="stats-bar-fill" style="width:${Math.round((count / maxMood) * 100)}%"></span></span>
+              <span class="stats-bar-count">${count}</span>
+            </div>
+          `).join('')
+        : '<p class="stats-empty">No moods logged yet.</p>';
+
+      const tagEntries = Object.entries(data.tagCounts || {}).sort((a, b) => b[1] - a[1]).slice(0, 12);
+      const tagsHtml = tagEntries.length
+        ? `<div class="stats-tags">${tagEntries.map(([tag, count]) => `<span class="stats-tag-chip">#${escapeHtml(tag)} · ${count}</span>`).join('')}</div>`
+        : '<p class="stats-empty">No tags used yet.</p>';
+
+      body.innerHTML = `
+        <div class="stats-summary">
+          <div class="stats-summary-item">
+            <div class="stats-summary-num">${data.totalEntries ?? 0}</div>
+            <div class="stats-summary-label">Entries</div>
+          </div>
+          <div class="stats-summary-item">
+            <div class="stats-summary-num">${data.streak ?? 0}</div>
+            <div class="stats-summary-label">Day streak</div>
+          </div>
+        </div>
+        <div class="stats-section-title">Moods</div>
+        ${moodHtml}
+        <div class="stats-section-title">Top tags</div>
+        ${tagsHtml}
+      `;
+    } catch (err) {
+      console.error('[Diary] Stats load failed:', err.message);
+      body.innerHTML = '<p class="stats-empty">Could not load stats.</p>';
     }
   }
 

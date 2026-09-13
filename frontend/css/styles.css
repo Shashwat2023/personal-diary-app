@@ -234,9 +234,20 @@ a:hover { opacity: 0.72; }
   display: block;
 }
 
-.icon-dark { display: none; }
-[data-theme="dark"] .icon-light { display: none; }
-[data-theme="dark"] .icon-dark { display: block; }
+.auth-logo-icon img.icon-dark,
+.sidebar-logo-mark img.icon-dark {
+  display: none;
+}
+
+[data-theme="dark"] .auth-logo-icon img.icon-light,
+[data-theme="dark"] .sidebar-logo-mark img.icon-light {
+  display: none;
+}
+
+[data-theme="dark"] .auth-logo-icon img.icon-dark,
+[data-theme="dark"] .sidebar-logo-mark img.icon-dark {
+  display: block;
+}
 
 .auth-logo-text {
   font-family: var(--font-display);
