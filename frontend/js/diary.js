@@ -2,6 +2,7 @@
    PERSONAL DIARY — DIARY.JS
    Entry CRUD, autosave, search, rendering
    ============================================= */
+import { COMMON_TAGS } from './data/commonTags';
 
 const Diary = (() => {
   // ─── State ──────────────────────────────────
@@ -587,12 +588,8 @@ const Diary = (() => {
   }
 
   // ─── Tags widget (chip input + # suggestions) ──
-  const COMMON_TAGS = [
-    'instagram', 'work', 'travel', 'family', 'friends', 'health', 'fitness',
-    'gratitude', 'goals', 'dreams', 'memories', 'love', 'food', 'money',
-    'school', 'ideas', 'milestone', 'morning', 'evening', 'weekend',
-    'selfcare', 'nature', 'music', 'books', 'movies'
-  ];
+  
+  const availableTags = COMMON_TAGS;
 
   function renderTagChips() {
     if (!DOM.tagsChips) return;
