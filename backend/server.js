@@ -407,6 +407,57 @@ app.get('/api/stats', authenticateToken, async (req, res) => {
   }
 });
 
+// ─── Subscriptions ──────────────────────────────
+const PLAN_RANK = { journal: 0, chronicle: 1, heirloom: 2 };
+
+async function getUserPlan(userId) {
+  const result = await pool.query(
+    `SELECT plan, status, billing_cycle, current_period_end
+     FROM subscriptions WHERE user_id = $1`,
+    [userId]
+  );
+  if (result.rows.length === 0 || result.rows[0].status !== 'active') {
+    return { plan: 'journal', status: 'active', billing_cycle: null, current_period_end: null };
+  }
+  return result.rows[0];
+}
+
+function requirePlan(minPlan) {
+  return async (req, res, next) => {
+    try {
+      const sub = await getUserPlan(req.user.id);
+      if (PLAN_RANK[sub.plan] < PLAN_RANK[minPlan]) {
+        return res.status(403).json({ success: false, message: `This feature needs the ${minPlan} plan or higher.` });
+      }
+      req.subscription = sub;
+      next();
+    } catch (err) {
+      console.error('Plan check error:', err.message);
+      res.status(500).json({ success: false, message: err.message });
+    }
+  };
+}
+
+app.get('/api/subscription', authenticateToken, async (req, res) => {
+  try {
+    const sub = await getUserPlan(req.user.id);
+    res.json({ success: true, subscription: sub });
+  } catch (err) {
+    console.error('Get subscription error:', err.message);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// TODO (Phase 2 — Razorpay): create order/subscription here. Needs RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET.
+app.post('/api/subscription/checkout', authenticateToken, async (req, res) => {
+  res.status(501).json({ success: false, message: 'Checkout is not set up yet — Razorpay integration coming in Phase 2.' });
+});
+
+// TODO (Phase 2 — Razorpay): verify X-Razorpay-Signature, upsert subscriptions table. NOT behind authenticateToken. Needs RAZORPAY_WEBHOOK_SECRET.
+app.post('/api/subscription/webhook', async (req, res) => {
+  res.status(501).json({ success: false, message: 'Webhook not set up yet.' });
+});
+
 app.use('/api', (req, res) => {
   res.status(404).json({
     success: false,

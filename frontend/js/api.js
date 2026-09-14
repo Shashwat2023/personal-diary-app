@@ -83,6 +83,14 @@ const API = (() => {
     return request('GET', '/stats');
   }
 
+  async function getSubscription() {
+    return request('GET', '/subscription');
+  }
+
+  async function startCheckout(plan, billingCycle) {
+    return request('POST', '/subscription/checkout', { plan, billing_cycle: billingCycle });
+  }
+
   // ─── Public API ────────────────────────────
   return {
     getEntries,
@@ -93,6 +101,8 @@ const API = (() => {
     restoreEntry,
     permanentDeleteEntry,
     getStats,
+    getSubscription,
+    startCheckout,
     getToken,
     isAuthenticated: async () => !!(await getToken())
   };
