@@ -360,6 +360,26 @@
     #char-count.near-limit { color: #C1733F; }
     #char-count.over-limit { color: #A85C5C; font-weight: 600; }
 
+    /* Same look as .theme-toggle, deliberately a different class so
+       UI.applyTheme()'s `.theme-toggle` selector never touches it and
+       overwrites its icon/tooltip on every theme switch. */
+    .icon-btn-circle {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: var(--bg-hover);
+      border: 1.5px solid var(--border-muted);
+      color: var(--ink-secondary);
+      display: grid;
+      place-items: center;
+      transition: background var(--transition-fast), color var(--transition-fast),
+                  transform var(--transition-fast), border-color var(--transition-fast);
+    }
+    .icon-btn-circle:hover {
+      color: var(--accent-warm);
+      border-color: var(--accent-warm);
+    }
+
     /* ─── Date filter chip ─── */
     .date-filter-chip {
       display: inline-flex;
@@ -456,6 +476,77 @@
       .filter-select, #filter-tag, .tags-field { min-height: 38px; }
       .btn-sm { min-height: 34px; }
     }
+
+    /* =============================================
+       RESPONSIVE OVERHAUL — phones, tablets
+       Placed last so it wins any cascade ties with
+       the rules above; !important on the drawer's
+       core properties is a deliberate guarantee that
+       the sidebar can never get stuck open on mobile
+       no matter what else on the page touches it.
+       ============================================= */
+
+    html, body { overflow-x: hidden; }
+    .dashboard { max-width: 100vw; }
+
+    /* ── Phones & small tablets (≤768px): drawer mode ── */
+    @media (max-width: 768px) {
+      .sidebar {
+        position: fixed !important;
+        top: 0; bottom: 0; left: 0;
+        transform: translateX(-100%) !important;
+        width: 82vw;
+        max-width: 320px;
+        z-index: 100;
+        box-shadow: none;
+      }
+      .sidebar.open {
+        transform: translateX(0) !important;
+        box-shadow: var(--shadow-lg);
+      }
+
+      .main-area { width: 100%; }
+
+      /* The hamburger was easy to miss — a plain glyph with no background
+         on a dark page. Give it the same visible circular treatment as
+         every other icon button so it reads as tappable. */
+      .mobile-toggle {
+        width: 34px;
+        height: 34px;
+        border-radius: 50%;
+        background: var(--bg-hover);
+        border: 1.5px solid var(--border-muted);
+        font-size: 1.1rem;
+      }
+      .mobile-toggle:hover { border-color: var(--accent-warm); color: var(--accent-warm); }
+
+      .editor-header { padding-left: 0.85rem; padding-right: 0.85rem; }
+      .sidebar-header { padding: 1rem 0.85rem 0.85rem; }
+      .header-actions { gap: 0.35rem; }
+    }
+
+    /* ── Tablets in portrait / small laptops (769–1024px) ── */
+    @media (min-width: 769px) and (max-width: 1024px) {
+      :root { --sidebar-width: 240px; }
+      .mood-section, .editor-footer { padding-left: 2rem; padding-right: 2rem; }
+      .editor-body { padding: 2rem; }
+    }
+
+    /* ── Very narrow phones (≤360px) ── */
+    @media (max-width: 360px) {
+      .sidebar-logo-name { display: none; }
+      .header-actions { gap: 0.3rem; }
+      .upgrade-btn span, .upgrade-btn { font-size: 0.62rem; padding: 0.28rem 0.5rem; }
+      .entries-count, .date-filter-chip { font-size: 0.6rem; }
+      .plan-cta, .mk-btn { font-size: 0.72rem; }
+    }
+
+    /* Comfortable tap targets on touch devices, regardless of width */
+    @media (pointer: coarse) {
+      .btn, .mk-btn, .cal-day.has-entry, .mood-btn, .tag-suggest-item {
+        min-height: 38px;
+      }
+    }
   </style>
 </head>
 <body>
@@ -474,7 +565,7 @@
         </div>
         <span class="sidebar-logo-name">Folio</span>
         <div class="header-actions">
-          <a href="marketplace.html" class="theme-toggle glow-btn" title="Marketplace" aria-label="Marketplace" style="text-decoration:none;">
+          <a href="marketplace.html" class="icon-btn-circle glow-btn" title="Marketplace" aria-label="Marketplace" style="text-decoration:none;">
             <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
           </a>
           <a href="pricing.html" class="upgrade-btn glow-btn" title="View plans">

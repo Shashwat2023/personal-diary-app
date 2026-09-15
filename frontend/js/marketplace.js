@@ -143,9 +143,39 @@ const Marketplace = (() => {
       return `<button class="mk-btn mk-use" data-id="${item.id}">Use</button>`;
     }
     if (item.required_plan) {
-      return `<a class="mk-btn mk-locked" href="pricing.html">View ${Subscription.planLabel(item.required_plan)}</a>`;
+      // A plain link here looked broken — clicking it gave no feedback
+      // before silently navigating away. This shows an explicit message
+      // first, with the actual upgrade link inside it.
+      return `<button class="mk-btn mk-locked" data-plan="${item.required_plan}" data-name="${escapeHtml(item.name)}">View ${Subscription.planLabel(item.required_plan)}</button>`;
     }
     return `<button class="mk-btn mk-buy" data-id="${item.id}">${isFree ? 'Get' : 'Buy — ₹' + Number(item.price) / 100}</button>`;
+  }
+
+  // ─── Plan-locked upgrade popup ──────────────
+  function showUpgradePopup(itemName, minPlan) {
+    const planLabel = Subscription.planLabel(minPlan);
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+      <div class="modal">
+        <h3 class="modal-title">${escapeHtml(itemName)}</h3>
+        <p class="modal-body" style="font-family:var(--font-body);">This item is included with ${planLabel}. Upgrade to unlock it.</p>
+        <div class="modal-actions">
+          <button class="btn btn-ghost btn-sm" id="upgrade-popup-close">Not now</button>
+          <a class="btn btn-primary btn-sm" id="upgrade-popup-link" href="pricing.html">View ${planLabel}</a>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    function close() {
+      overlay.classList.add('closing');
+      overlay.querySelector('.modal').classList.add('closing');
+      setTimeout(() => overlay.remove(), 220);
+    }
+
+    overlay.querySelector('#upgrade-popup-close').addEventListener('click', close);
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
   }
 
   // ─── Card interactions ──────────────────────
@@ -154,6 +184,8 @@ const Marketplace = (() => {
       btn.addEventListener('click', () => buy(btn.dataset.id, btn)));
     DOM.grid.querySelectorAll('.mk-use').forEach(btn =>
       btn.addEventListener('click', () => use(btn.dataset.id, btn)));
+    DOM.grid.querySelectorAll('.mk-locked').forEach(btn =>
+      btn.addEventListener('click', () => showUpgradePopup(btn.dataset.name, btn.dataset.plan)));
 
     // Hovering a theme card previews it live; leaving restores the active one.
     DOM.grid.querySelectorAll('.mk-card[data-type="theme"], .mk-card[data-type="animation"]').forEach(card => {
