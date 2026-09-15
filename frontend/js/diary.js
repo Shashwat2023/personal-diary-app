@@ -15,6 +15,8 @@ const Diary = (() => {
     lastSavedContent: '',
     selectedMood: null,
     isDirty: false,
+    isSaving: false,
+    planFeatures: null,
     filterMood: '',
     filterTag: '',
     filterDate: null,
@@ -65,6 +67,7 @@ const Diary = (() => {
       previewBtn:     document.getElementById('preview-btn'),
       preview:        document.getElementById('entry-preview'),
       readingTimeEl:  document.getElementById('reading-time'),
+      charCountEl:    document.getElementById('char-count'),
       categorySelect: document.getElementById('category-select'),
       tagsField:      document.getElementById('tags-field'),
       tagsChips:      document.getElementById('tags-chips'),
@@ -91,6 +94,15 @@ const Diary = (() => {
 
     // Live clock
     UI.startLiveClock(DOM.liveTime);
+
+    // Plan features (character/entry limits) — needed before the editor
+    // can enforce anything, so this loads before the first render.
+    try {
+      const sub = await Subscription.getCurrentPlan();
+      state.planFeatures = sub.features || null;
+    } catch (err) {
+      console.error('[Diary] Plan load failed:', err.message);
+    }
 
     // Load entries from backend
     await loadEntries();
@@ -424,9 +436,30 @@ const Diary = (() => {
   //         instead of raw fetch calls that were looking for 'token' (wrong key).
   //         After save, re-fetch from backend so state always matches DB.
   async function saveActive(silent = false) {
+    // Without this guard, clicking "Save" while the 5s autosave timer is
+    // mid-flight fires two concurrent CREATE requests — both see
+    // state.isNew === true (it only flips after the first one resolves),
+    // so the entry gets inserted twice.
+    if (state.isSaving) return;
+
     const content = DOM.editor?.value?.trim();
     if (!content) {
       if (!silent) UI.showToast('Write something first.', 'info');
+      return;
+    }
+
+    state.isSaving = true;
+    if (DOM.saveBtn) DOM.saveBtn.disabled = true;
+
+    // Client-side pre-check — instant feedback, matches what the backend
+    // will enforce anyway (that server check is the real gate; this just
+    // avoids a pointless round trip when we already know it'll fail).
+    const charLimit = state.planFeatures?.characters_per_entry;
+    if (typeof charLimit === 'number' && content.length > charLimit) {
+      state.isSaving = false;
+      if (DOM.saveBtn) DOM.saveBtn.disabled = false;
+      showAutosave(null);
+      if (!silent) showLimitModal('CHARACTER_LIMIT');
       return;
     }
 
@@ -483,7 +516,18 @@ const Diary = (() => {
     } catch (err) {
       console.error('[Diary] Save failed:', err.message);
       showAutosave(null);
-      if (!silent) UI.showToast(err.message || 'Save failed.', 'error');
+
+      // Plan-limit errors get their own upgrade modal instead of a toast —
+      // but only for an explicit Save click. Autosave stays quiet; the live
+      // character counter already shows the user they're over the limit.
+      if (!silent && (err.code === 'CHARACTER_LIMIT' || err.code === 'DAILY_LIMIT')) {
+        showLimitModal(err.code);
+      } else if (!silent) {
+        UI.showToast(err.message || 'Save failed.', 'error');
+      }
+    } finally {
+      state.isSaving = false;
+      if (DOM.saveBtn) DOM.saveBtn.disabled = false;
     }
   }
 
@@ -572,6 +616,25 @@ const Diary = (() => {
       DOM.readingTimeEl.textContent = `${mins} min read`;
       DOM.readingTimeEl.style.display = wc > 0 ? 'block' : 'none';
     }
+    updateCharCount();
+  }
+
+  function updateCharCount() {
+    if (!DOM.charCountEl || !DOM.editor) return;
+    const limit = state.planFeatures?.characters_per_entry;
+
+    // Unlimited plans (or before the plan's loaded) show nothing extra —
+    // only Journal's finite cap is worth a running counter.
+    if (typeof limit !== 'number') {
+      DOM.charCountEl.style.display = 'none';
+      return;
+    }
+
+    const len = DOM.editor.value.length;
+    DOM.charCountEl.textContent = `${len.toLocaleString('en-IN')} / ${limit.toLocaleString('en-IN')}`;
+    DOM.charCountEl.style.display = 'block';
+    DOM.charCountEl.classList.toggle('over-limit', len > limit);
+    DOM.charCountEl.classList.toggle('near-limit', len > limit * 0.9 && len <= limit);
   }
 
   function updateEditorDate(dateStr) {
@@ -614,7 +677,12 @@ const Diary = (() => {
   }
 
   // ─── Tags widget (chip input + # suggestions) ──
-  const availableTags = COMMON_TAGS;
+  const COMMON_TAGS = [
+    'instagram', 'work', 'travel', 'family', 'friends', 'health', 'fitness',
+    'gratitude', 'goals', 'dreams', 'memories', 'love', 'food', 'money',
+    'school', 'ideas', 'milestone', 'morning', 'evening', 'weekend',
+    'selfcare', 'nature', 'music', 'books', 'movies'
+  ];
 
   function renderTagChips() {
     if (!DOM.tagsChips) return;
@@ -751,6 +819,47 @@ const Diary = (() => {
     overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
 
     return { overlay, close };
+  }
+
+  // ─── Journal-plan limit modals (spec §39) ───
+  function showLimitModal(code) {
+    const copy = code === 'DAILY_LIMIT'
+      ? {
+          title: "Your journal has more to say.",
+          message: "You've reached today's 2-entry limit on the Journal plan.",
+          secondaryLabel: 'Maybe later'
+        }
+      : {
+          title: 'This page is getting long.',
+          message: 'This entry is longer than the 1,000-character Journal limit.',
+          secondaryLabel: 'Keep editing'
+        };
+
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+      <div class="modal">
+        <h3 class="modal-title">${copy.title}</h3>
+        <p class="modal-body" style="font-family:var(--font-body);">${copy.message}</p>
+        <div class="modal-actions">
+          <button class="btn btn-ghost btn-sm" id="limit-modal-secondary">${copy.secondaryLabel}</button>
+          <button class="btn btn-primary btn-sm" id="limit-modal-upgrade">Upgrade to Chronicle</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    function close() {
+      overlay.classList.add('closing');
+      overlay.querySelector('.modal').classList.add('closing');
+      setTimeout(() => overlay.remove(), 220);
+    }
+
+    overlay.querySelector('#limit-modal-secondary').addEventListener('click', close);
+    overlay.querySelector('#limit-modal-upgrade').addEventListener('click', () => {
+      window.location.href = 'pricing.html';
+    });
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
   }
 
   // ─── Calendar modal ─────────────────────────

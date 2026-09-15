@@ -326,9 +326,15 @@
       .tag-chip { font-size: 0.78rem; padding: 0.35rem 0.6rem; }
       .tag-suggest-item { padding: 0.7rem 0.85rem; font-size: 0.85rem; }
     }
-        /* ─── Upgrade button (sidebar header) ─── */
-    .upgrade-btn {
+
+    /* ─── Upgrade / Marketplace buttons (sidebar header) ─── */
+    .header-actions {
       margin-left: auto;
+      display: flex;
+      gap: 0.4rem;
+      flex-wrap: wrap;
+    }
+    .upgrade-btn {
       display: inline-flex;
       align-items: center;
       gap: 0.3rem;
@@ -349,6 +355,11 @@
       background: var(--accent-warm);
       color: #fff;
     }
+
+    /* ─── Character counter (Journal plan limit) ─── */
+    #char-count.near-limit { color: #C1733F; }
+    #char-count.over-limit { color: #A85C5C; font-weight: 600; }
+
     /* ─── Date filter chip ─── */
     .date-filter-chip {
       display: inline-flex;
@@ -461,11 +472,17 @@
           <img src="assets/logo-icon-light.png" class="icon-light" alt="Folio">
           <img src="assets/logo-icon-dark.png" class="icon-dark" alt="Folio">
         </div>
-                <span class="sidebar-logo-name">Folio</span>
-        <a href="pricing.html" class="upgrade-btn" title="View plans">
-          <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/></svg>
-          Upgrade
-        </a>
+        <span class="sidebar-logo-name">Folio</span>
+        <div class="header-actions">
+          <a href="marketplace.html" class="upgrade-btn glow-btn" title="Marketplace">
+            <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+            Marketplace
+          </a>
+          <a href="pricing.html" class="upgrade-btn glow-btn" title="View plans">
+            <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/></svg>
+            Upgrade
+          </a>
+        </div>
       </div>
 
       <!-- Search -->
@@ -534,7 +551,6 @@
 
       <!-- Dark mode toggle -->
       <button class="theme-toggle" id="theme-toggle" title="Switch to dark mode" aria-label="Switch theme">◑</button>
-            
 
       <!-- Logout -->
       <button class="logout-btn" id="logout-btn" title="Sign out" aria-label="Sign out">
@@ -574,6 +590,7 @@
         <!-- Word count -->
         <span class="word-count" id="word-count" style="display:none"></span>
         <span class="word-count" id="reading-time" style="display:none"></span>
+        <span class="word-count" id="char-count" style="display:none"></span>
 
         <!-- Favorite / Pin / Preview -->
         <button class="btn btn-ghost btn-sm" id="favorite-btn" style="display:none" title="Favorite" aria-label="Favorite this entry">☆</button>
@@ -689,10 +706,7 @@
 <script src="js/api.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/subscription.js"></script>
-
-<script src="js/commonTags.js"></script>
 <script src="js/diary.js"></script>
-
 <script>
   // Apply saved theme immediately (before any render)
   UI.initTheme();
