@@ -18,6 +18,26 @@ const Subscription = (() => {
   let razorpayScriptPromise = null;
 
   // ─── Plan state ─────────────────────────────
+  // Mirrors backend PLAN_FEATURES.journal — used only if /api/subscription
+  // can't be reached. Failing safe to the strictest tier (rather than an
+  // empty {} that silently disabled every limit) is the whole point: a
+  // fetch failure should never accidentally grant unlimited access.
+  const JOURNAL_FALLBACK_FEATURES = {
+    unlimited_entries: false,
+    unlimited_characters: false,
+    entries_per_day: 2,
+    characters_per_entry: 1000,
+    premium_themes: false,
+    animated_themes: false,
+    premium_fonts: false,
+    pdf_export: false,
+    custom_pdf_cover: false,
+    locked_entries: 0,
+    advanced_statistics: false,
+    advanced_search: false,
+    marketplace: 'basic'
+  };
+
   async function getCurrentPlan(force = false) {
     if (cached && !force) return cached;
     try {
@@ -25,7 +45,7 @@ const Subscription = (() => {
       cached = res.data;
     } catch (err) {
       console.error('[Subscription] fetch failed:', err.message);
-      cached = { plan: 'journal', status: 'active', billing_cycle: null, features: {} };
+      cached = { plan: 'journal', status: 'active', billing_cycle: null, features: JOURNAL_FALLBACK_FEATURES };
     }
     return cached;
   }

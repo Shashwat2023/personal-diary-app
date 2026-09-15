@@ -103,6 +103,7 @@ const Diary = (() => {
     } catch (err) {
       console.error('[Diary] Plan load failed:', err.message);
     }
+    applyCharLimitToEditor();
 
     // Load entries from backend
     await loadEntries();
@@ -617,6 +618,18 @@ const Diary = (() => {
       DOM.readingTimeEl.style.display = wc > 0 ? 'block' : 'none';
     }
     updateCharCount();
+  }
+
+  // Native maxlength is a real, browser-enforced stop — typing or pasting
+  // past it is refused outright, unlike a warning that lets you keep going.
+  function applyCharLimitToEditor() {
+    if (!DOM.editor) return;
+    const limit = state.planFeatures?.characters_per_entry;
+    if (typeof limit === 'number') {
+      DOM.editor.setAttribute('maxlength', String(limit));
+    } else {
+      DOM.editor.removeAttribute('maxlength');
+    }
   }
 
   function updateCharCount() {
@@ -1139,7 +1152,9 @@ const Diary = (() => {
 
     sorted.forEach((entry, i) => {
       const dateLine = `${UI.formatDate(entry.created_at)} · ${UI.formatTime(entry.created_at)}`;
-      const title = entry.title ? escapeHtml(entry.title) : 'Untitled';
+      const title = entry.title
+        ? escapeHtml(entry.title)
+        : escapeHtml(new Date(entry.created_at).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' }));
       const moodTag = entry.mood
         ? `<span style="font-style:italic; color:#8a6a3f;">feeling ${escapeHtml(entry.mood)}</span>`
         : '';
@@ -1188,9 +1203,47 @@ const Diary = (() => {
     return wrap;
   }
 
+  // ─── Restricted-feature modal (spec §61) ────
+  function showFeatureLockModal(featureName, minPlan) {
+    const planLabel = Subscription.planLabel(minPlan);
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+      <div class="modal">
+        <h3 class="modal-title">${featureName} needs an upgrade</h3>
+        <p class="modal-body" style="font-family:var(--font-body);">${featureName} is included with ${planLabel}.</p>
+        <div class="modal-actions">
+          <button class="btn btn-ghost btn-sm" id="lock-modal-close">Not now</button>
+          <button class="btn btn-primary btn-sm" id="lock-modal-view">View ${planLabel}</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    function close() {
+      overlay.classList.add('closing');
+      overlay.querySelector('.modal').classList.add('closing');
+      setTimeout(() => overlay.remove(), 220);
+    }
+
+    overlay.querySelector('#lock-modal-close').addEventListener('click', close);
+    overlay.querySelector('#lock-modal-view').addEventListener('click', () => {
+      window.location.href = 'pricing.html';
+    });
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+  }
+
   async function exportPDF() {
     if (!state.entries.length) {
       UI.showToast('No entries to export yet.', 'info');
+      return;
+    }
+
+    // PDF export is a Chronicle+ feature (Journal spec §6/§9) — checked
+    // client-side for instant feedback; the backend never even sees this
+    // request since the whole book is built from already-loaded entries.
+    if (!(await Subscription.hasFeature('pdf_export'))) {
+      showFeatureLockModal('PDF export', 'chronicle');
       return;
     }
 
@@ -1223,16 +1276,14 @@ const Diary = (() => {
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
       const imgData = canvas.toDataURL('image/jpeg', 0.95);
 
-      let heightLeft = imgHeight;
-      let position = 0;
-      pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
-      heightLeft -= pageHeight;
+      // Fixed page count via Math.ceil instead of a `while (heightLeft > 0)`
+      // loop — that loop hit floating-point residue when imgHeight landed
+      // near an exact multiple of pageHeight, adding one blank extra page.
+      const pageCount = Math.max(1, Math.ceil(imgHeight / pageHeight - 1e-6));
 
-      while (heightLeft > 0) {
-        position = heightLeft - imgHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
-        heightLeft -= pageHeight;
+      for (let page = 0; page < pageCount; page++) {
+        if (page > 0) pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', 0, -(page * pageHeight), imgWidth, imgHeight);
       }
 
       pdf.save(`folio-diary-${new Date().toISOString().slice(0, 10)}.pdf`);
