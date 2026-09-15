@@ -37,15 +37,25 @@ const API = (() => {
       console.log(`[API] ${method} ${path} →`, response.status, data);
 
       if (!response.ok) {
-        if (response.status === 401 || response.status === 403) {
+        // 403 is now also used for plan limits (daily cap, character cap,
+        // locked-entry limit). Only sign out on genuine auth failures —
+        // otherwise hitting a free-plan limit would log the user out.
+        const isPlanLimit = !!(data.code || data.upgrade_to || data.required_plan || data.feature);
+        if (response.status === 401 || (response.status === 403 && !isPlanLimit)) {
           await supabaseClient.auth.signOut();
           window.location.href = 'login.html';
         }
-        throw new Error(data.message || data.error || `HTTP ${response.status}`);
+        const error = new Error(data.message || data.error || `HTTP ${response.status}`);
+        error.status = response.status;
+        error.code = data.code;
+        error.upgradeTo = data.upgrade_to || data.required_plan;
+        error.payload = data;
+        throw error;
       }
       return data;
     } catch (err) {
       console.error(`[API] ${method} ${path} failed:`, err.message);
+      if (err.status) throw err;   // keep structured API errors intact
       throw new Error(err.message || 'Network error. Please try again.');
     }
   }
@@ -83,12 +93,65 @@ const API = (() => {
     return request('GET', '/stats');
   }
 
+  // ─── Subscription ──────────────────────────
   async function getSubscription() {
     return request('GET', '/subscription');
   }
 
-  async function startCheckout(plan, billingCycle) {
+  async function createSubscriptionCheckout(plan, billingCycle) {
     return request('POST', '/subscription/checkout', { plan, billing_cycle: billingCycle });
+  }
+
+  async function verifySubscriptionPayment(payload) {
+    return request('POST', '/subscription/verify', payload);
+  }
+
+  async function cancelSubscription() {
+    return request('POST', '/subscription/cancel');
+  }
+
+  async function getPaymentHistory() {
+    return request('GET', '/subscription/payments');
+  }
+
+  // ─── Marketplace ───────────────────────────
+  async function getMarketplaceItems(type) {
+    return request('GET', type ? `/marketplace?type=${encodeURIComponent(type)}` : '/marketplace');
+  }
+
+  async function getMarketplaceItem(id) {
+    return request('GET', `/marketplace/${id}`);
+  }
+
+  async function getOwnedItems() {
+    return request('GET', '/marketplace/owned');
+  }
+
+  async function createItemCheckout(id) {
+    return request('POST', `/marketplace/${id}/checkout`);
+  }
+
+  async function verifyItemPurchase(id, payload) {
+    return request('POST', `/marketplace/${id}/verify`, payload);
+  }
+
+  async function activateItem(itemId) {
+    return request('POST', '/marketplace/activate', { item_id: itemId });
+  }
+
+  async function getAppearancePreferences() {
+    return request('GET', '/marketplace/preferences');
+  }
+
+  // ─── Locked entries ────────────────────────
+  async function lockEntry(id, { content, lockSalt, lockIv }) {
+    return request('POST', `/entries/${id}/lock`, {
+      content, lock_salt: lockSalt, lock_iv: lockIv
+    });
+  }
+
+  async function unlockEntry(id, content) {
+    return request('POST', `/entries/${id}/unlock`, { content });
   }
 
   // ─── Public API ────────────────────────────
@@ -102,7 +165,19 @@ const API = (() => {
     permanentDeleteEntry,
     getStats,
     getSubscription,
-    startCheckout,
+    createSubscriptionCheckout,
+    verifySubscriptionPayment,
+    cancelSubscription,
+    getPaymentHistory,
+    getMarketplaceItems,
+    getMarketplaceItem,
+    getOwnedItems,
+    createItemCheckout,
+    verifyItemPurchase,
+    activateItem,
+    getAppearancePreferences,
+    lockEntry,
+    unlockEntry,
     getToken,
     isAuthenticated: async () => !!(await getToken())
   };

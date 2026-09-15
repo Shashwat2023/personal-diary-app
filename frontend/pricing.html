@@ -108,11 +108,12 @@
         <div class="plan-price">₹0</div>
         <div class="plan-price-note">forever</div>
         <ul class="plan-features">
-          <li>Unlimited diary entries</li>
+          <li>2 entries a day, up to 1,000 characters each</li>
           <li>Mood, tags, categories &amp; search</li>
-          <li>Calendar &amp; stats view</li>
-          <li>Vintage-style PDF export</li>
-          <li>Light &amp; dark theme</li>
+          <li>Calendar &amp; basic statistics</li>
+          <li>Trash &amp; restore</li>
+          <li>Light &amp; dark theme, standard fonts</li>
+          <li>Free marketplace items</li>
         </ul>
         <button class="plan-cta" disabled>Your current plan</button>
       </div>
@@ -122,14 +123,16 @@
         <div class="plan-badge">Most popular</div>
         <h2 class="plan-name">Chronicle</h2>
         <p class="plan-tagline">A fuller record, styled your way.</p>
-        <!-- TODO: set real price -->
-        <div class="plan-price" data-cycle="monthly">₹<span id="chronicle-price">__</span><span>/mo</span></div>
+        <div class="plan-price">₹<span id="chronicle-price">79</span><span id="chronicle-per">/mo</span></div>
         <div class="plan-price-note" id="chronicle-price-note">billed monthly</div>
         <ul class="plan-features">
           <li>Everything in Journal</li>
-          <li>3 niche themes + aesthetic fonts</li>
-          <li>Choose a custom PDF cover design</li>
+          <li>Unlimited entries, unlimited length</li>
+          <li>Premium themes &amp; fonts</li>
+          <li>PDF export with custom styling</li>
+          <li>Advanced statistics &amp; search</li>
           <li>Up to 10 password-locked entries</li>
+          <li>Full marketplace access</li>
         </ul>
         <button class="plan-cta" data-plan="chronicle">Choose Chronicle</button>
       </div>
@@ -139,14 +142,16 @@
         <div class="plan-badge">Everything</div>
         <h2 class="plan-name">Heirloom</h2>
         <p class="plan-tagline">A treasured, one-of-a-kind edition.</p>
-        <!-- TODO: set real price -->
-        <div class="plan-price" data-cycle="monthly">₹<span id="heirloom-price">__</span><span>/mo</span></div>
+        <div class="plan-price">₹<span id="heirloom-price">149</span><span id="heirloom-per">/mo</span></div>
         <div class="plan-price-note" id="heirloom-price-note">billed monthly</div>
         <ul class="plan-features">
           <li>Everything in Chronicle</li>
-          <li>All niche themes, including the animated one</li>
-          <li>Fully custom PDF cover (your own text/photo)</li>
-          <li>Unlimited password-locked, encrypted entries</li>
+          <li>Animated themes &amp; every premium font</li>
+          <li>Custom PDF cover — your own text and image</li>
+          <li>Unlimited password-locked entries</li>
+          <li>Writing streak history &amp; advanced calendar</li>
+          <li>Heirloom-only marketplace items</li>
+          <li>Early access to new themes and fonts</li>
         </ul>
         <button class="plan-cta" data-plan="heirloom">Choose Heirloom</button>
       </div>
@@ -164,50 +169,94 @@
     UI.initTheme();
     document.getElementById('theme-toggle')?.addEventListener('click', () => UI.toggleTheme());
 
-    (async () => {
-      if (!(await Auth.isAuthenticated())) {
-        window.location.href = 'login.html';
-        return;
-      }
-    })();
+    const PRICES = Subscription.PRICING;   // ₹79 / ₹799 / ₹149 / ₹1,499
 
-    // ── Monthly/yearly price display ──
-    // TODO: replace these placeholder numbers with your real pricing.
-    const PRICES = {
-      chronicle: { monthly: '__', yearly: '__' },
-      heirloom:  { monthly: '__', yearly: '__' }
-    };
+    function currentCycle() {
+      return document.getElementById('cycle-yearly').classList.contains('active')
+        ? 'yearly' : 'monthly';
+    }
 
     function applyCycle(cycle) {
       document.getElementById('cycle-monthly').classList.toggle('active', cycle === 'monthly');
       document.getElementById('cycle-yearly').classList.toggle('active', cycle === 'yearly');
-      document.getElementById('chronicle-price').textContent = PRICES.chronicle[cycle];
-      document.getElementById('heirloom-price').textContent = PRICES.heirloom[cycle];
-      document.getElementById('chronicle-price-note').textContent = cycle === 'monthly' ? 'billed monthly' : 'billed yearly';
-      document.getElementById('heirloom-price-note').textContent = cycle === 'monthly' ? 'billed monthly' : 'billed yearly';
+
+      const per = cycle === 'monthly' ? '/mo' : '/yr';
+      const note = cycle === 'monthly' ? 'billed monthly' : 'billed yearly — save with yearly billing';
+
+      document.getElementById('chronicle-price').textContent = PRICES.chronicle[cycle].toLocaleString('en-IN');
+      document.getElementById('heirloom-price').textContent  = PRICES.heirloom[cycle].toLocaleString('en-IN');
+      document.getElementById('chronicle-per').textContent   = per;
+      document.getElementById('heirloom-per').textContent    = per;
+      document.getElementById('chronicle-price-note').textContent = note;
+      document.getElementById('heirloom-price-note').textContent  = note;
     }
 
     document.getElementById('cycle-monthly').addEventListener('click', () => applyCycle('monthly'));
     document.getElementById('cycle-yearly').addEventListener('click', () => applyCycle('yearly'));
     applyCycle('monthly');
 
-    // ── Checkout buttons (stubbed until Phase 2 / Razorpay) ──
+    // ── Checkout ──
     document.querySelectorAll('.plan-cta[data-plan]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const cycle = document.getElementById('cycle-yearly').classList.contains('active') ? 'yearly' : 'monthly';
-        Subscription.startCheckout(btn.dataset.plan, cycle);
+      btn.addEventListener('click', async () => {
+        const plan = btn.dataset.plan;
+        const original = btn.textContent;
+
+        const result = await Subscription.startCheckout(plan, currentCycle(), {
+          onStateChange: (s) => {
+            if (s === 'loading')        { btn.disabled = true;  btn.textContent = 'Opening checkout…'; }
+            else if (s === 'verifying') { btn.textContent = 'Verifying payment…'; }
+            else if (s === 'success')   { btn.textContent = 'Your current plan'; }
+            else                        { btn.disabled = false; btn.textContent = original; }
+          }
+        });
+
+        if (result.success) {
+          UI.showToast('Welcome to ' + Subscription.planLabel(plan) + '.', 'success');
+          setTimeout(() => { window.location.href = 'dashboard.html'; }, 1200);
+        }
       });
     });
 
-    // ── Grey out the plan the user's already on ──
+    // ── Reflect the user's current plan ──
     (async () => {
-      const sub = await Subscription.getCurrentPlan();
+      if (!(await Auth.requireAuth())) return;
+      await Subscription.loadAppearance();
+
+      const sub = await Subscription.getCurrentPlan(true);
+
+      if (sub.payments_configured === false) {
+        UI.showToast('Payments are not configured yet.', 'info');
+      }
+
       document.querySelectorAll('.plan-cta[data-plan]').forEach(btn => {
-        if (btn.dataset.plan === sub.plan) {
+        const plan = btn.dataset.plan;
+        if (plan === sub.plan) {
           btn.textContent = 'Your current plan';
           btn.disabled = true;
+        } else if (Subscription.PLAN_RANK[plan] < Subscription.PLAN_RANK[sub.plan]) {
+          btn.textContent = 'Included in your plan';
+          btn.disabled = true;
+        } else {
+          btn.textContent = 'Upgrade';
         }
       });
+
+      // The free card reflects reality too.
+      const freeBtn = document.querySelector('.plan-card:first-child .plan-cta');
+      if (freeBtn && sub.plan !== 'journal') {
+        freeBtn.textContent = 'Included';
+      }
+
+      if (sub.plan !== 'journal' && sub.current_period_end) {
+        const note = document.createElement('p');
+        note.style.cssText = 'text-align:center;margin-top:2rem;color:var(--ink-secondary);font-family:var(--font-body);font-size:0.82rem;';
+        const end = new Date(sub.current_period_end).toLocaleDateString(undefined,
+          { day: 'numeric', month: 'long', year: 'numeric' });
+        note.textContent = sub.cancelled_at
+          ? 'Your plan is cancelled and stays active until ' + end + '.'
+          : 'Your ' + Subscription.planLabel(sub.plan) + ' plan runs until ' + end + '.';
+        document.querySelector('.pricing-wrapper').appendChild(note);
+      }
     })();
   </script>
 
