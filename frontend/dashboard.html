@@ -326,7 +326,29 @@
       .tag-chip { font-size: 0.78rem; padding: 0.35rem 0.6rem; }
       .tag-suggest-item { padding: 0.7rem 0.85rem; font-size: 0.85rem; }
     }
-
+        /* ─── Upgrade button (sidebar header) ─── */
+    .upgrade-btn {
+      margin-left: auto;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      font-family: var(--font-body);
+      font-size: 0.68rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      text-decoration: none;
+      color: var(--accent-warm);
+      background: var(--bg-hover);
+      border: 1px solid var(--accent-warm);
+      border-radius: 999px;
+      padding: 0.3rem 0.6rem;
+      white-space: nowrap;
+      transition: background 0.18s ease, color 0.18s ease;
+    }
+    .upgrade-btn:hover {
+      background: var(--accent-warm);
+      color: #fff;
+    }
     /* ─── Date filter chip ─── */
     .date-filter-chip {
       display: inline-flex;
@@ -439,7 +461,11 @@
           <img src="assets/logo-icon-light.png" class="icon-light" alt="Folio">
           <img src="assets/logo-icon-dark.png" class="icon-dark" alt="Folio">
         </div>
-        <span class="sidebar-logo-name">Folio</span>
+                <span class="sidebar-logo-name">Folio</span>
+        <a href="pricing.html" class="upgrade-btn" title="View plans">
+          <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/></svg>
+          Upgrade
+        </a>
       </div>
 
       <!-- Search -->
@@ -508,7 +534,7 @@
 
       <!-- Dark mode toggle -->
       <button class="theme-toggle" id="theme-toggle" title="Switch to dark mode" aria-label="Switch theme">◑</button>
-            <a href="pricing.html" class="theme-toggle" title="Plans" aria-label="View plans" style="text-decoration:none; display:grid; place-items:center;">✦</a>
+            
 
       <!-- Logout -->
       <button class="logout-btn" id="logout-btn" title="Sign out" aria-label="Sign out">
