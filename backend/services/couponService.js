@@ -11,7 +11,10 @@
 
 // Minimum a Razorpay order can be for — also our floor so a coupon can
 // never discount something all the way to ₹0.
-const MIN_CHARGE_PAISE = 100; // ₹1
+// A coupon can legitimately bring the price to ₹0 (e.g. a 100%-off test
+// or promo code) — floor is 0, not ₹1. When that happens, checkout skips
+// Razorpay entirely rather than trying to create a ₹0 order (which
+// Razorpay itself won't accept anyway).
 
 function createCouponService(pool) {
 
@@ -66,7 +69,7 @@ function createCouponService(pool) {
     }
 
     const discountAmount = computeDiscount(coupon, baseAmount);
-    const finalAmount = Math.max(MIN_CHARGE_PAISE, baseAmount - discountAmount);
+    const finalAmount = Math.max(0, baseAmount - discountAmount);
     // Recompute the *actual* discount applied, in case the floor clamped it.
     const appliedDiscount = baseAmount - finalAmount;
 
@@ -100,7 +103,7 @@ function createCouponService(pool) {
     );
   }
 
-  return { validateCoupon, redeemCoupon, MIN_CHARGE_PAISE };
+  return { validateCoupon, redeemCoupon };
 }
 
 module.exports = { createCouponService };

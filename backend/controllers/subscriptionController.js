@@ -38,9 +38,6 @@ function createSubscriptionController(pool, entitlements, coupons) {
     if (!['monthly', 'yearly'].includes(billingCycle)) {
       return res.status(400).json({ success: false, message: 'Invalid billing cycle.' });
     }
-    if (!razorpay.isConfigured()) {
-      return res.status(503).json({ success: false, message: 'Payments are not configured.' });
-    }
 
     try {
       const current = await entitlements.getUserPlan(req.user.id);
@@ -67,6 +64,46 @@ function createSubscriptionController(pool, entitlements, coupons) {
         finalAmount = result.final_amount;
         discountAmount = result.discount_amount;
         couponId = result.coupon.id;
+      }
+
+      // A coupon covering the full price activates immediately — no
+      // Razorpay order, no card, nothing to verify. This also means a
+      // 100%-off coupon works even before Razorpay keys are configured.
+      if (finalAmount === 0) {
+        const client = await pool.connect();
+        try {
+          await client.query('BEGIN');
+
+          const subscription = await activateSubscription(client, {
+            userId: req.user.id, plan, billingCycle,
+            orderId: null, paymentId: null
+          });
+
+          if (couponId) {
+            await coupons.redeemCoupon(client, {
+              couponId, userId: req.user.id, orderId: null, discountAmount
+            });
+          }
+
+          await client.query(
+            `INSERT INTO payments
+               (user_id, subscription_id, amount, currency, plan, billing_cycle, status, coupon_id, discount_amount)
+             VALUES ($1, $2, 0, 'INR', $3, $4, 'captured', $5, $6)`,
+            [req.user.id, subscription.id, plan, billingCycle, couponId, discountAmount]
+          );
+
+          await client.query('COMMIT');
+          return res.json({ success: true, data: { free: true, subscription } });
+        } catch (err) {
+          await client.query('ROLLBACK').catch(() => {});
+          throw err;
+        } finally {
+          client.release();
+        }
+      }
+
+      if (!razorpay.isConfigured()) {
+        return res.status(503).json({ success: false, message: 'Payments are not configured.' });
       }
 
       const order = await razorpay.createOrder({

@@ -163,10 +163,6 @@ function createMarketplaceController(pool, entitlements, coupons) {
         return res.json({ success: true, data: { free: true, owned: true } });
       }
 
-      if (!razorpay.isConfigured()) {
-        return res.status(503).json({ success: false, message: 'Payments are not configured.' });
-      }
-
       // Base price is the DB column we just queried — never anything the
       // client sent. A coupon can only ever discount THIS value.
       const baseAmount = Number(item.price);
@@ -186,6 +182,41 @@ function createMarketplaceController(pool, entitlements, coupons) {
         finalAmount = result.final_amount;
         discountAmount = result.discount_amount;
         couponId = result.coupon.id;
+      }
+
+      // A coupon covering the full price grants ownership immediately —
+      // no Razorpay order, nothing to verify.
+      if (finalAmount === 0) {
+        const client = await pool.connect();
+        try {
+          await client.query('BEGIN');
+
+          await client.query(
+            `INSERT INTO marketplace_purchases
+               (user_id, item_id, amount, currency, status, coupon_id, discount_amount, purchased_at)
+             VALUES ($1, $2, 0, 'INR', 'completed', $3, $4, NOW())
+             ON CONFLICT DO NOTHING`,
+            [req.user.id, item.id, couponId, discountAmount]
+          );
+
+          if (couponId) {
+            await coupons.redeemCoupon(client, {
+              couponId, userId: req.user.id, orderId: null, discountAmount
+            });
+          }
+
+          await client.query('COMMIT');
+          return res.json({ success: true, data: { free: true, owned: true } });
+        } catch (err) {
+          await client.query('ROLLBACK').catch(() => {});
+          throw err;
+        } finally {
+          client.release();
+        }
+      }
+
+      if (!razorpay.isConfigured()) {
+        return res.status(503).json({ success: false, message: 'Payments are not configured.' });
       }
 
       const order = await razorpay.createOrder({

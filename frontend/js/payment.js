@@ -102,7 +102,7 @@ const Payment = (() => {
     }
 
     DOM.totalAmount.textContent = formatRupees(final);
-    DOM.payBtn.textContent = `Pay ${formatRupees(final)}`;
+    DOM.payBtn.textContent = final === 0 ? 'Claim for free' : `Pay ${formatRupees(final)}`;
   }
 
   function formatRupees(paise) {
@@ -172,6 +172,21 @@ const Payment = (() => {
       const res = type === 'subscription'
         ? await API.createSubscriptionCheckout(plan, cycle, couponCode)
         : await API.createItemCheckout(itemId, couponCode);
+
+      // A 100%-off coupon is granted directly server-side — no order,
+      // nothing for Razorpay to do.
+      if (res.data.free) {
+        DOM.payBtn.textContent = 'Done';
+        if (type === 'subscription') {
+          Subscription.clearCache();
+          UI.showToast(`Welcome to ${Subscription.planLabel(plan)}.`, 'success');
+          setTimeout(() => { window.location.href = 'dashboard.html'; }, 1000);
+        } else {
+          UI.showToast('Added to your collection.', 'success');
+          setTimeout(() => { window.location.href = 'marketplace.html'; }, 1000);
+        }
+        return;
+      }
 
       const order = res.data;
       await Subscription.loadRazorpay();
