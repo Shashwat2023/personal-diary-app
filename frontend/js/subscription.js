@@ -81,12 +81,12 @@ const Subscription = (() => {
   // ─── Subscription checkout ──────────────────
   // Resolves only after the backend has verified the signature — a frontend
   // "success" callback alone never grants access.
-  async function startCheckout(plan, billingCycle, { onStateChange } = {}) {
+  async function startCheckout(plan, billingCycle, { onStateChange, couponCode } = {}) {
     const setState = onStateChange || (() => {});
 
     try {
       setState('loading');
-      const res = await API.createSubscriptionCheckout(plan, billingCycle);
+      const res = await API.createSubscriptionCheckout(plan, billingCycle, couponCode);
       const order = res.data;
 
       await loadRazorpay();

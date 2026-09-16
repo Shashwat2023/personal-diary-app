@@ -57,7 +57,12 @@ app.use('/api', rateLimit({
   message: { success: false, message: 'Too many requests, please try again later.' }
 }));
 
-app.use(express.json({ limit: '1mb' }));
+// `verify` stashes the raw bytes before parsing — Razorpay webhook signatures
+// are computed over the exact raw body, which JSON.parse would destroy.
+app.use(express.json({
+  limit: '1mb',
+  verify: (req, res, buf) => { req.rawBody = buf.toString('utf8'); }
+}));
 
 app.use(
   morgan(
@@ -130,6 +135,21 @@ const authenticateToken = async (req, res, next) => {
 // Account creation/login is handled entirely by Supabase Auth (Google
 // sign-in) on the frontend now — no custom register/login/verify endpoints.
 
+const { createEntitlementService }      = require('./services/entitlementService');
+const { createCouponService }           = require('./services/couponService');
+const { createPlanMiddleware }          = require('./middleware/planMiddleware');
+const { createSubscriptionController }  = require('./controllers/subscriptionController');
+const { createMarketplaceController }   = require('./controllers/marketplaceController');
+const { createCouponController }        = require('./controllers/couponController');
+const { createSubscriptionRoutes }      = require('./routes/subscriptionRoutes');
+const { createMarketplaceRoutes }       = require('./routes/marketplaceRoutes');
+const { createCouponRoutes }            = require('./routes/couponRoutes');
+
+const entitlements   = createEntitlementService(pool);
+const coupons        = createCouponService(pool);
+const planMiddleware = createPlanMiddleware(entitlements);
+
+
 // The mood buttons in the UI only ever send one of these — but the API never
 // enforced that, so anyone calling it directly could store arbitrary strings.
 const VALID_MOODS = ['happy', 'calm', 'reflective', 'anxious', 'sad', 'grateful'];
@@ -169,6 +189,18 @@ app.post('/api/entries', authenticateToken, async (req, res) => {
     const validationError = validateEntryFields(req.body);
     if (validationError) {
       return res.status(400).json({ success: false, message: validationError });
+    }
+
+    // Plan limits are enforced here, server-side — the frontend is never the
+    // only thing standing between a Journal user and unlimited writing.
+    const limitCheck = await entitlements.canCreateEntry(req.user.id, content);
+    if (!limitCheck.allowed) {
+      return res.status(403).json({
+        success: false,
+        message: limitCheck.message,
+        code: limitCheck.code,
+        upgrade_to: 'chronicle'
+      });
     }
 
     const result = await pool.query(
@@ -232,6 +264,17 @@ app.put('/api/entries/:id', authenticateToken, async (req, res) => {
     const validationError = validateEntryFields(req.body);
     if (validationError) {
       return res.status(400).json({ success: false, message: validationError });
+    }
+
+    // Character cap applies to edits too; editing never consumes a daily entry.
+    const limitCheck = await entitlements.canEditEntry(req.user.id, content);
+    if (!limitCheck.allowed) {
+      return res.status(403).json({
+        success: false,
+        message: limitCheck.message,
+        code: limitCheck.code,
+        upgrade_to: 'chronicle'
+      });
     }
 
     const result = await pool.query(
@@ -365,6 +408,75 @@ app.delete('/api/entries/:id/permanent', authenticateToken, async (req, res) => 
 });
 
 // ─── Stats (mood/tag counts, streaks) ─────────
+// ─── Locked entries ─────────────────────────────
+// Content is encrypted in the browser before it ever reaches us: the server
+// stores ciphertext plus the salt/IV and can never read a locked entry.
+app.post('/api/entries/:id/lock', authenticateToken, async (req, res) => {
+  try {
+    const { content, lock_salt: lockSalt, lock_iv: lockIv } = req.body || {};
+
+    if (!content || !lockSalt || !lockIv) {
+      return res.status(400).json({
+        success: false,
+        message: 'Encrypted content, salt and IV are all required.'
+      });
+    }
+
+    const lockCheck = await entitlements.canLockEntry(req.user.id, req.params.id);
+    if (!lockCheck.allowed) {
+      return res.status(403).json({
+        success: false,
+        message: lockCheck.message,
+        code: lockCheck.code,
+        upgrade_to: lockCheck.code === 'LOCKED_ENTRIES_LIMIT' ? 'heirloom' : 'chronicle'
+      });
+    }
+
+    const result = await pool.query(
+      `UPDATE entries
+       SET content = $1, is_locked = TRUE, lock_salt = $2, lock_iv = $3
+       WHERE id = $4 AND user_id = $5 AND deleted_at IS NULL
+       RETURNING id, is_locked`,
+      [content, lockSalt, lockIv, req.params.id, req.user.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Entry not found' });
+    }
+    res.json({ success: true, data: { entry: result.rows[0] } });
+  } catch (err) {
+    console.error('Lock entry error:', err.message);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Unlocking happens client-side after successful decryption; this just stores
+// the plaintext back and clears the lock metadata.
+app.post('/api/entries/:id/unlock', authenticateToken, async (req, res) => {
+  try {
+    const { content } = req.body || {};
+    if (typeof content !== 'string') {
+      return res.status(400).json({ success: false, message: 'Decrypted content is required.' });
+    }
+
+    const result = await pool.query(
+      `UPDATE entries
+       SET content = $1, is_locked = FALSE, lock_salt = NULL, lock_iv = NULL
+       WHERE id = $2 AND user_id = $3 AND deleted_at IS NULL
+       RETURNING id, is_locked`,
+      [content, req.params.id, req.user.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Entry not found' });
+    }
+    res.json({ success: true, data: { entry: result.rows[0] } });
+  } catch (err) {
+    console.error('Unlock entry error:', err.message);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 app.get('/api/stats', authenticateToken, async (req, res) => {
   try {
     const result = await pool.query(
@@ -394,69 +506,86 @@ app.get('/api/stats', authenticateToken, async (req, res) => {
       cursor.setDate(cursor.getDate() - 1);
     }
 
-    res.json({
+    // Basic stats stay available on every plan (existing response shape is
+    // preserved so the current dashboard keeps working unchanged).
+    const payload = {
       success: true,
       totalEntries: rows.length,
       moodCounts,
       tagCounts,
       streak
-    });
+    };
+
+    // Advanced stats are additive and only attached for Chronicle+.
+    const sub = await entitlements.getUserPlan(req.user.id);
+    const features = entitlements.featuresForPlan(sub.plan);
+    payload.plan = sub.plan;
+    payload.advanced_available = !!features.advanced_statistics;
+
+    if (features.advanced_statistics) {
+      const byMonth = {};
+      const byWeekday = [0, 0, 0, 0, 0, 0, 0];
+      const categoryCounts = {};
+      let longestStreak = 0;
+      let run = 0;
+
+      rows.forEach(r => {
+        const d = new Date(r.created_at);
+        const monthKey = d.toISOString().slice(0, 7);
+        byMonth[monthKey] = (byMonth[monthKey] || 0) + 1;
+        byWeekday[d.getDay()]++;
+        if (r.category) categoryCounts[r.category] = (categoryCounts[r.category] || 0) + 1;
+      });
+
+      // Longest run of consecutive days, walking the sorted day set backwards.
+      const sortedDays = [...days].sort();
+      let prev = null;
+      sortedDays.forEach(day => {
+        if (prev) {
+          const diff = (new Date(day) - new Date(prev)) / 86400000;
+          run = diff === 1 ? run + 1 : 1;
+        } else {
+          run = 1;
+        }
+        longestStreak = Math.max(longestStreak, run);
+        prev = day;
+      });
+
+      payload.advanced = {
+        byMonth,
+        byWeekday,
+        categoryCounts,
+        longestStreak,
+        daysWritten: days.size,
+        firstEntry: rows.length ? rows[rows.length - 1].created_at : null
+      };
+    }
+
+    res.json(payload);
   } catch (err) {
     console.error('Stats error:', err.message);
     res.status(500).json({ success: false, message: err.message });
   }
 });
 
-// ─── Subscriptions ──────────────────────────────
-const PLAN_RANK = { journal: 0, chronicle: 1, heirloom: 2 };
+// ─── Subscriptions & Marketplace ────────────────
+// Plans: 'journal' (free, default) → 'chronicle' → 'heirloom'.
+// All entitlement decisions live in entitlementService — never in the frontend.
 
-async function getUserPlan(userId) {
-  const result = await pool.query(
-    `SELECT plan, status, billing_cycle, current_period_end
-     FROM subscriptions WHERE user_id = $1`,
-    [userId]
-  );
-  if (result.rows.length === 0 || result.rows[0].status !== 'active') {
-    return { plan: 'journal', status: 'active', billing_cycle: null, current_period_end: null };
-  }
-  return result.rows[0];
-}
+app.use('/api/subscription', createSubscriptionRoutes({
+  controller: createSubscriptionController(pool, entitlements, coupons),
+  authenticateToken
+}));
 
-function requirePlan(minPlan) {
-  return async (req, res, next) => {
-    try {
-      const sub = await getUserPlan(req.user.id);
-      if (PLAN_RANK[sub.plan] < PLAN_RANK[minPlan]) {
-        return res.status(403).json({ success: false, message: `This feature needs the ${minPlan} plan or higher.` });
-      }
-      req.subscription = sub;
-      next();
-    } catch (err) {
-      console.error('Plan check error:', err.message);
-      res.status(500).json({ success: false, message: err.message });
-    }
-  };
-}
+app.use('/api/marketplace', createMarketplaceRoutes({
+  controller: createMarketplaceController(pool, entitlements, coupons),
+  authenticateToken
+}));
 
-app.get('/api/subscription', authenticateToken, async (req, res) => {
-  try {
-    const sub = await getUserPlan(req.user.id);
-    res.json({ success: true, subscription: sub });
-  } catch (err) {
-    console.error('Get subscription error:', err.message);
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
-
-// TODO (Phase 2 — Razorpay): create order/subscription here. Needs RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET.
-app.post('/api/subscription/checkout', authenticateToken, async (req, res) => {
-  res.status(501).json({ success: false, message: 'Checkout is not set up yet — Razorpay integration coming in Phase 2.' });
-});
-
-// TODO (Phase 2 — Razorpay): verify X-Razorpay-Signature, upsert subscriptions table. NOT behind authenticateToken. Needs RAZORPAY_WEBHOOK_SECRET.
-app.post('/api/subscription/webhook', async (req, res) => {
-  res.status(501).json({ success: false, message: 'Webhook not set up yet.' });
-});
+app.use('/api/coupons', createCouponRoutes({
+  controller: createCouponController(pool, coupons),
+  authenticateToken
+}));
 
 app.use('/api', (req, res) => {
   res.status(404).json({

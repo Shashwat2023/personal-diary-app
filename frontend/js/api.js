@@ -98,8 +98,11 @@ const API = (() => {
     return request('GET', '/subscription');
   }
 
-  async function createSubscriptionCheckout(plan, billingCycle) {
-    return request('POST', '/subscription/checkout', { plan, billing_cycle: billingCycle });
+  async function createSubscriptionCheckout(plan, billingCycle, couponCode) {
+    return request('POST', '/subscription/checkout', {
+      plan, billing_cycle: billingCycle,
+      ...(couponCode ? { coupon_code: couponCode } : {})
+    });
   }
 
   async function verifySubscriptionPayment(payload) {
@@ -127,8 +130,9 @@ const API = (() => {
     return request('GET', '/marketplace/owned');
   }
 
-  async function createItemCheckout(id) {
-    return request('POST', `/marketplace/${id}/checkout`);
+  async function createItemCheckout(id, couponCode) {
+    return request('POST', `/marketplace/${id}/checkout`,
+      couponCode ? { coupon_code: couponCode } : undefined);
   }
 
   async function verifyItemPurchase(id, payload) {
@@ -144,6 +148,11 @@ const API = (() => {
   }
 
   // ─── Locked entries ────────────────────────
+  // ─── Coupons ────────────────────────────────
+  async function validateCoupon(payload) {
+    return request('POST', '/coupons/validate', payload);
+  }
+
   async function lockEntry(id, { content, lockSalt, lockIv }) {
     return request('POST', `/entries/${id}/lock`, {
       content, lock_salt: lockSalt, lock_iv: lockIv
@@ -176,6 +185,7 @@ const API = (() => {
     verifyItemPurchase,
     activateItem,
     getAppearancePreferences,
+    validateCoupon,
     lockEntry,
     unlockEntry,
     getToken,

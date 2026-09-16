@@ -215,66 +215,28 @@ const Marketplace = (() => {
 
   // ─── Purchase ───────────────────────────────
   async function buy(itemId, btn) {
-    const original = btn.textContent;
-    btn.disabled = true;
-    btn.textContent = 'Opening checkout…';
+    const item = state.items.find(i => i.id === itemId);
+    const isFree = item && (item.is_free || Number(item.price) === 0);
 
-    try {
-      const res = await API.createItemCheckout(itemId);
-
-      // Free items are granted server-side with no payment round-trip.
-      if (res.data.free) {
+    // Free items skip the payment page entirely — nothing to pay, nothing
+    // for a coupon to discount.
+    if (isFree) {
+      const original = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Adding…';
+      try {
+        await API.createItemCheckout(itemId);
         UI.showToast('Added to your collection.', 'success');
         await refresh();
-        return;
-      }
-
-      await Subscription.loadRazorpay();
-      const order = res.data;
-      const user = await Auth.getUser();
-
-      const rzp = new window.Razorpay({
-        key: order.key_id,
-        amount: order.amount,
-        currency: order.currency,
-        name: 'Folio',
-        description: order.item.name,
-        order_id: order.order_id,
-        prefill: { name: user?.username || '', email: user?.email || '' },
-        theme: { color: '#64745D' },
-        modal: {
-          ondismiss: () => { btn.disabled = false; btn.textContent = original; }
-        },
-        handler: async (response) => {
-          btn.textContent = 'Verifying…';
-          try {
-            await API.verifyItemPurchase(itemId, {
-              razorpay_order_id:   response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature:  response.razorpay_signature
-            });
-            UI.showToast('Purchased — added to your collection.', 'success');
-            await refresh();
-          } catch (err) {
-            UI.showToast(err.message || 'Could not verify your purchase.', 'error');
-            btn.disabled = false;
-            btn.textContent = original;
-          }
-        }
-      });
-
-      rzp.on('payment.failed', (resp) => {
-        UI.showToast(resp?.error?.description || 'Payment failed.', 'error');
+      } catch (err) {
+        UI.showToast(err.message || 'Could not add this item.', 'error');
         btn.disabled = false;
         btn.textContent = original;
-      });
-
-      rzp.open();
-    } catch (err) {
-      UI.showToast(err.message || 'Could not start checkout.', 'error');
-      btn.disabled = false;
-      btn.textContent = original;
+      }
+      return;
     }
+
+    window.location.href = `payment.html?type=marketplace&item=${itemId}`;
   }
 
   // ─── Activate ───────────────────────────────

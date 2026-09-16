@@ -139,6 +139,7 @@ const Diary = (() => {
     if (DOM.editor) {
       DOM.editor.addEventListener('input', onEditorInput);
       DOM.editor.addEventListener('keydown', onEditorKeydown);
+      DOM.editor.addEventListener('paste', onEditorPaste);
     }
 
     // Mood buttons
@@ -605,6 +606,25 @@ const Diary = (() => {
       const end   = DOM.editor.selectionEnd;
       DOM.editor.value = DOM.editor.value.slice(0, start) + '  ' + DOM.editor.value.slice(end);
       DOM.editor.selectionStart = DOM.editor.selectionEnd = start + 2;
+    }
+  }
+
+  // Native maxlength truncates a paste silently — the user just sees part
+  // of their text missing with no explanation. This intercepts the paste
+  // instead: if it would exceed the Journal limit, block it entirely and
+  // say why, rather than a confusing partial paste.
+  function onEditorPaste(e) {
+    const limit = state.planFeatures?.characters_per_entry;
+    if (typeof limit !== 'number') return;   // unlimited plan — nothing to block
+
+    const pasted = (e.clipboardData || window.clipboardData).getData('text');
+    const el = DOM.editor;
+    const selectionLength = el.selectionEnd - el.selectionStart;
+    const resultingLength = el.value.length - selectionLength + pasted.length;
+
+    if (resultingLength > limit) {
+      e.preventDefault();
+      showLimitModal('CHARACTER_LIMIT');
     }
   }
 

@@ -195,25 +195,10 @@
     document.getElementById('cycle-yearly').addEventListener('click', () => applyCycle('yearly'));
     applyCycle('monthly');
 
-    // ── Checkout ──
+    // ── Checkout ── (goes through payment.html, which has the coupon field)
     document.querySelectorAll('.plan-cta[data-plan]').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const plan = btn.dataset.plan;
-        const original = btn.textContent;
-
-        const result = await Subscription.startCheckout(plan, currentCycle(), {
-          onStateChange: (s) => {
-            if (s === 'loading')        { btn.disabled = true;  btn.textContent = 'Opening checkout…'; }
-            else if (s === 'verifying') { btn.textContent = 'Verifying payment…'; }
-            else if (s === 'success')   { btn.textContent = 'Your current plan'; }
-            else                        { btn.disabled = false; btn.textContent = original; }
-          }
-        });
-
-        if (result.success) {
-          UI.showToast('Welcome to ' + Subscription.planLabel(plan) + '.', 'success');
-          setTimeout(() => { window.location.href = 'dashboard.html'; }, 1200);
-        }
+      btn.addEventListener('click', () => {
+        window.location.href = `payment.html?type=subscription&plan=${btn.dataset.plan}&cycle=${currentCycle()}`;
       });
     });
 
