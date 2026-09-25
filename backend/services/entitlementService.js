@@ -63,16 +63,25 @@ function createEntitlementService(pool) {
 
   // ─── Current plan ─────────────────────────────
   // No active row, or a period that has already ended → free Journal plan.
+  // Also falls back to free plan (instead of throwing) if the subscriptions
+  // table/columns are missing or malformed in the DB — a schema drift here
+  // must never block core actions like saving an entry.
   async function getUserPlan(userId) {
-    const { rows } = await pool.query(
-      `SELECT id, plan, status, billing_cycle,
-              current_period_start, current_period_end, cancelled_at
-       FROM subscriptions
-       WHERE user_id = $1 AND status = 'active'
-       ORDER BY created_at DESC
-       LIMIT 1`,
-      [userId]
-    );
+    let rows;
+    try {
+      ({ rows } = await pool.query(
+        `SELECT id, plan, status, billing_cycle,
+                current_period_start, current_period_end, cancelled_at
+         FROM subscriptions
+         WHERE user_id = $1 AND status = 'active'
+         ORDER BY created_at DESC
+         LIMIT 1`,
+        [userId]
+      ));
+    } catch (err) {
+      console.error('[entitlements] getUserPlan query failed, falling back to free plan:', err.message);
+      return freePlan();
+    }
 
     if (rows.length === 0) return freePlan();
 
